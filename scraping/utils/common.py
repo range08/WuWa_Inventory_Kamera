@@ -2,7 +2,6 @@ import logging
 import mss
 import cv2
 import json
-import ctypes
 import numpy as np
 import win32clipboard
 from pathlib import Path
@@ -142,8 +141,6 @@ def imageToString(
     ).text
 
 
-def isUserAdmin():
-    return ctypes.windll.shell32.IsUserAnAdmin()
 
 def copyToClipboard(text):
     try:
