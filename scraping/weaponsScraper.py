@@ -31,6 +31,7 @@ from scraping.parsing import (
     parse_quantity,
 )
 from scraping.retry import retry_call
+from scraping.record_collection import append_distinct_copy
 from scraping.review_queue import (
     DEFAULT_REVIEW_CONFIDENCE,
     write_review_metadata,
@@ -279,7 +280,7 @@ def processGridItem(
                 )
                 rankText = rankResult.text
                 _cache[rankHash] = rankText
-            weapons.append(processWeapon(name, levelText, rankText))
+            append_distinct_copy(weapons, processWeapon(name, levelText, rankText))
         return True
     return True
 
