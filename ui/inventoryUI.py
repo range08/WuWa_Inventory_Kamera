@@ -188,6 +188,18 @@ class InventoryInterface(ScrollArea):
 			card = ItemCard(str(basePATH / 'assets' / image), name, inventory_file[item_id])
 			self.gridLayout.addWidget(card, index // columns, index % columns)
 
+	def _getItemIDByName(self, item_name: str):
+		"""Resolve a localized display name back to its item ID."""
+		normalized = ''.join(item_name.split()).lower()
+		info = itemsID.get(normalized)
+		if info is not None:
+			return info.get('id')
+
+		for candidate in itemsID.values():
+			if candidate.get('name') == item_name:
+				return candidate.get('id')
+		return None
+
 	def _getItemInfoByID(self, item_id: int):
 		"""Retrieve item image and name by its ID."""
 		for _, info in itemsID.items():
