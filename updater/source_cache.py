@@ -75,7 +75,13 @@ class SourceCache:
                 raise
             return self.latest_valid(provider, language)
 
-        cache_dir = self.root / provider.owner / provider.repo / revision
+        cache_dir = (
+            self.root
+            / provider.owner
+            / provider.repo
+            / revision
+            / language
+        )
         manifest_path = cache_dir / self.MANIFEST_NAME
 
         if manifest_path.is_file():
@@ -151,7 +157,15 @@ class SourceCache:
             )
 
         candidates: list[tuple[str, Path]] = []
-        for manifest_path in source_root.glob("*/{}".format(self.MANIFEST_NAME)):
+        manifest_paths = list(
+            source_root.glob("*/*/{}".format(self.MANIFEST_NAME))
+        )
+        # Read one-level manifests created by early modernization builds too.
+        manifest_paths.extend(
+            source_root.glob("*/{}".format(self.MANIFEST_NAME))
+        )
+
+        for manifest_path in manifest_paths:
             try:
                 manifest = self.validate(manifest_path)
             except SourceCacheError:
