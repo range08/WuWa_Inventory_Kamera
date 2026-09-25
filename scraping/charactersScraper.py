@@ -21,6 +21,7 @@ from scraping.matching import (
     RESONATOR_NAME_CUTOFF,
     best_match,
 )
+from scraping.cancellation import check_cancelled
 from scraping.parsing import (
     ScanParseError,
     ascension_from_level_cap,
@@ -245,7 +246,7 @@ def scrapeChain(controller: WindowsInputController, screenInfo: ScreenInfo, char
     finally:
         controller.pressKey('esc')
 
-def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo):
+def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo, cancel_event=None):
     characters = defaultdict(
         lambda: defaultdict(
             int,
@@ -284,15 +285,18 @@ def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo)
     _cache = dict()
     nameCache = dict()
 
+    check_cancelled(cancel_event)
     controller.pressKey(cfg.get(cfg.resonatorKeybind), 2, False)
 
     xLeftSide, yLeftSide = screenInfo.characters.leftSide.x, screenInfo.characters.leftSide.y
     xRightSide, yRightSide = screenInfo.characters.rightSide.x, screenInfo.characters.rightSide.y
 
     for _ in range(MAX_RESONATOR_VIEWPORTS):
+        check_cancelled(cancel_event)
         newResonators = 0
 
         for resonatorIndex in range(7):
+            check_cancelled(cancel_event)
             controller.leftClick(
                 xRightSide,
                 yRightSide + (screenInfo.characters.offsets.rightSide.y * resonatorIndex),
@@ -302,6 +306,7 @@ def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo)
             alreadySeen = False
 
             for section in range(5):
+                check_cancelled(cancel_event)
                 controller.leftClick(
                     xLeftSide,
                     yLeftSide + (screenInfo.characters.offsets.leftSide.y * section),
