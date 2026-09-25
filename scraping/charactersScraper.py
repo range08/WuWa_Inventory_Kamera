@@ -150,72 +150,95 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     characters[resonatorID]['weapon']['rank'] = weaponRank
 
 def scrapeSkills(controller: WindowsInputController, screenInfo: ScreenInfo, characters: dict, resonatorID: str, _cache: dict):
-
     controller.leftClick(screenInfo.characters.skillClick.x, screenInfo.characters.skillClick.y, .5)
 
-    for index, skills in enumerate(screenInfo.characters.skillPositions):
-        controller.leftClick(skills.x, skills.y)
+    try:
+        for index, skills in enumerate(screenInfo.characters.skillPositions):
+            controller.leftClick(skills.x, skills.y)
 
-        image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor, bw=True)
+            image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor, bw=True)
 
-        levelImage = image[screenInfo.characters.skillLevel.y:screenInfo.characters.skillLevel.y + screenInfo.characters.skillLevel.h, screenInfo.characters.skillLevel.x:screenInfo.characters.skillLevel.x + screenInfo.characters.skillLevel.w]
-        levelHash = hash(levelImage.tobytes())
-        
-        if levelHash in _cache:
-            level = _cache[levelHash]
-        else:
-            level = imageToString(levelImage, profile=INTEGER_PROFILE)
-            _cache[levelHash] = level
+            levelImage = image[screenInfo.characters.skillLevel.y:screenInfo.characters.skillLevel.y + screenInfo.characters.skillLevel.h, screenInfo.characters.skillLevel.x:screenInfo.characters.skillLevel.x + screenInfo.characters.skillLevel.w]
+            levelHash = hash(levelImage.tobytes())
 
-        try:
-            level = int(level)
-        except (TypeError, ValueError) as exc:
-            raise ValueError(
-                f"Unable to parse skill level from OCR result: {level!r}"
-            ) from exc
-
-        characters[resonatorID]['skills'][SKILL_LEGENDS[index]] = level
-
-        for y in range(1, 3):
-            controller.leftClick(skills.x, skills.y - (screenInfo.characters.offsets.skillPosition.y * y), .6)
-
-            buttonImage = screenshot(screenInfo.characters.skillButton.x, screenInfo.characters.skillButton.y, screenInfo.characters.skillButton.w, screenInfo.characters.skillButton.h, monitor=screenInfo.monitor, bw=True)
-            buttonHash = hash(buttonImage.tobytes())
-
-            if buttonHash in _cache:
-                button = _cache[buttonHash]
+            if levelHash in _cache:
+                level = _cache[levelHash]
             else:
-                button = imageToString(buttonImage).lower()
-                _cache[buttonHash] = button
+                level = imageToString(levelImage, profile=INTEGER_PROFILE)
+                _cache[levelHash] = level
 
-            if button.lower() == definedText['PrefabTextItem_3963945691_Text']: # MULTILANG
-                key = 'inherent' if index == 2 else f'stats{index}'
-                characters[resonatorID]['skills'][key] += 1
-            else:
-                break
+            try:
+                level = int(level)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"Unable to parse skill level from OCR result: {level!r}"
+                ) from exc
 
-    controller.pressKey('esc')
+            characters[resonatorID]['skills'][SKILL_LEGENDS[index]] = level
+
+            for y in range(1, 3):
+                controller.leftClick(
+                    skills.x,
+                    skills.y - (screenInfo.characters.offsets.skillPosition.y * y),
+                    .6,
+                )
+
+                buttonImage = screenshot(
+                    screenInfo.characters.skillButton.x,
+                    screenInfo.characters.skillButton.y,
+                    screenInfo.characters.skillButton.w,
+                    screenInfo.characters.skillButton.h,
+                    monitor=screenInfo.monitor,
+                    bw=True,
+                )
+                buttonHash = hash(buttonImage.tobytes())
+
+                if buttonHash in _cache:
+                    button = _cache[buttonHash]
+                else:
+                    button = imageToString(buttonImage).lower()
+                    _cache[buttonHash] = button
+
+                if button.lower() == definedText['PrefabTextItem_3963945691_Text']: # MULTILANG
+                    key = 'inherent' if index == 2 else f'stats{index}'
+                    characters[resonatorID]['skills'][key] += 1
+                else:
+                    break
+    finally:
+        controller.pressKey('esc')
 
 def scrapeChain(controller: WindowsInputController, screenInfo: ScreenInfo, characters: dict, resonatorID: str, _cache: dict):
     controller.leftClick(screenInfo.characters.chainClick.x, screenInfo.characters.chainClick.y, .7)
 
-    for position in screenInfo.characters.chainPositions:
-        controller.leftClick(position.x, position.y, .2)
+    try:
+        for position in screenInfo.characters.chainPositions:
+            controller.leftClick(position.x, position.y, .2)
 
-        statusImage = screenshot(screenInfo.characters.chainButton.x, screenInfo.characters.chainButton.y, screenInfo.characters.chainButton.w, screenInfo.characters.chainButton.h, monitor=screenInfo.monitor)
-        statusHash = hash(statusImage.tobytes())
-        
-        if statusHash in _cache:
-            status = _cache[statusHash]
-        else:
-            status = imageToString(statusImage, '', bannedChars=f'{string.punctuation} ').lower()
-            _cache[statusHash] = status
+            statusImage = screenshot(
+                screenInfo.characters.chainButton.x,
+                screenInfo.characters.chainButton.y,
+                screenInfo.characters.chainButton.w,
+                screenInfo.characters.chainButton.h,
+                monitor=screenInfo.monitor,
+            )
+            statusHash = hash(statusImage.tobytes())
 
-        if status.lower() != definedText['PrefabTextItem_3963945691_Text']: # MULTILANG
-            break
+            if statusHash in _cache:
+                status = _cache[statusHash]
+            else:
+                status = imageToString(
+                    statusImage,
+                    '',
+                    bannedChars=f'{string.punctuation} ',
+                ).lower()
+                _cache[statusHash] = status
 
-        characters[resonatorID]['chain'] += 1
-    controller.pressKey('esc')
+            if status.lower() != definedText['PrefabTextItem_3963945691_Text']: # MULTILANG
+                break
+
+            characters[resonatorID]['chain'] += 1
+    finally:
+        controller.pressKey('esc')
 
 def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo):
     characters = defaultdict(
