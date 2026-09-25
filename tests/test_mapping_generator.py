@@ -257,6 +257,100 @@ class MappingGeneratorTests(unittest.TestCase):
                 generated_mappings_current(cache_dir, output_dir)
             )
 
+    def test_malformed_source_records_fail_closed(self):
+        with self.assertRaisesRegex(MappingGenerationError, "ItemInfo"):
+            generate_items(
+                [{"Name": "Broken item"}],
+                {"Broken item": "Broken item"},
+            )
+
+        with self.assertRaisesRegex(MappingGenerationError, "WeaponConf"):
+            generate_weapons(
+                [{"WeaponName": "Broken weapon", "QualityId": 5}],
+                {"Broken weapon": "Broken weapon"},
+            )
+
+        with self.assertRaisesRegex(MappingGenerationError, "MonsterInfo"):
+            generate_echoes(
+                [None],
+                {},
+            )
+
+    def test_generate_from_cache_rejects_empty_required_mapping(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cache_dir = root / "source"
+            output_dir = root / "output"
+
+            (cache_dir / "Textmaps/en/multi_text").mkdir(parents=True)
+            (cache_dir / "BinData/role").mkdir(parents=True)
+            (cache_dir / "BinData/main_role_change").mkdir(parents=True)
+            (cache_dir / "BinData/weapon").mkdir(parents=True)
+            (cache_dir / "BinData/item").mkdir(parents=True)
+            (cache_dir / "BinData/monster_Info").mkdir(parents=True)
+            (cache_dir / "BinData/achievement").mkdir(parents=True)
+
+            (cache_dir / "manifest.json").write_text(
+                json.dumps({
+                    "schema_version": 1,
+                    "source": {
+                        "repository": "Arikatsu/WutheringWaves_Data",
+                        "ref": "3.6",
+                        "game_version": "3.6.0",
+                        "resource_version": "3.6.6",
+                        "changelist": "8499915",
+                    },
+                    "revision": "a" * 40,
+                    "language": "en",
+                    "files": {"fixture": {"sha256": "unused", "size": 0}},
+                }),
+                encoding="utf-8",
+            )
+            (cache_dir / "Textmaps/en/multi_text/MultiText.json").write_text(
+                "{}",
+                encoding="utf-8",
+            )
+            (cache_dir / "BinData/role/roleinfo.json").write_text(
+                json.dumps([{"Id": 1205, "Name": "RoleInfo_1205_Name"}]),
+                encoding="utf-8",
+            )
+            (cache_dir / "BinData/main_role_change/mainroleconfig.json").write_text(
+                "[]",
+                encoding="utf-8",
+            )
+            (cache_dir / "BinData/weapon/weaponconf.json").write_text(
+                json.dumps([{
+                    "ItemId": 21020064,
+                    "ModelId": 21020064,
+                    "WeaponName": "WeaponConf_21020064_WeaponName",
+                    "QualityId": 5,
+                    "Icon": "",
+                }]),
+                encoding="utf-8",
+            )
+            (cache_dir / "BinData/item/iteminfo.json").write_text(
+                json.dumps([{
+                    "Id": 43010001,
+                    "Name": "ItemInfo_43010001_Name",
+                    "Icon": "",
+                }]),
+                encoding="utf-8",
+            )
+            (cache_dir / "BinData/monster_Info/monsterinfo.json").write_text(
+                json.dumps([{"Id": 340000070, "Name": "MonsterInfo_340000070_Name"}]),
+                encoding="utf-8",
+            )
+            (cache_dir / "BinData/achievement/achievement.json").write_text(
+                json.dumps([{"Id": 1001, "Name": "Achievement_1001_Name"}]),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                MappingGenerationError,
+                "Generated mapping is empty",
+            ):
+                generate_from_cache(cache_dir, output_dir)
+
     def test_normalization_matches_existing_scanner_convention(self):
         self.assertEqual(normalize_name("Blazing Brilliance"), "blazingbrilliance")
 
