@@ -124,7 +124,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Account for Windows DPI scaling.
 - [ ] Support borderless-windowed if reliable.
 - [ ] Add a calibration/debug ROI overlay.
-- [ ] Add screenshot-only diagnostic mode.
+- [x] Add no-click screenshot diagnostic mode that saves only named scanner ROIs plus layout metadata, never a full-screen capture.
 - [x] Reject unsupported layouts before scanner input. Current safe policy requires 100% Windows scaling, a client area filling the entire target monitor, and an explicit ROI resolution.
 
 ## Phase 7 — Scanner state machine and safety
@@ -232,7 +232,7 @@ Start with 1920x1080 fullscreen.
 - [x] Update README with verified Global 3.6 data-source status, current scanner constraints, and explicit no-compatibility-claim wording pending live UI validation.
 - [ ] State tested modes/resolutions/languages exactly.
 - [ ] Document Korean support status and OCR troubleshooting.
-- [ ] Document calibration/debug mode and patch-update workflow.
+- [x] Document the no-click ROI diagnostic workflow and the data-provider patch-update commands.
 - [ ] Preserve upstream attribution/GPL obligations.
 - [ ] Replace dead tutorial resources where licensing permits.
 - [ ] Add `CONTRIBUTING.md`.
