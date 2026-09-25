@@ -1,12 +1,16 @@
+import hashlib
+from pathlib import Path
+
+import cv2
 import numpy as np
 
 from scraping.utils import weaponsID, itemsID
 from scraping.utils import (
-    screenshot, convertToBlackWhite, imageToString,
+    screenshot, convertToBlackWhite, imageToResult, imageToString,
     WindowsInputController
 )
 from game.screenInfo import ScreenInfo
-from properties.config import cfg
+from properties.config import basePATH, cfg
 from scraping.cancellation import check_cancelled
 from scraping.ocr_engine import INTEGER_PROFILE, LEVEL_PROFILE, NAME_PROFILE
 from scraping.matching import (
@@ -21,9 +25,68 @@ from scraping.parsing import (
     parse_quantity,
 )
 from scraping.retry import retry_call
+from scraping.review_queue import (
+    DEFAULT_REVIEW_CONFIDENCE,
+    write_review_metadata,
+)
 
 # Constants
 ROWS, COLS = 4, 6
+
+
+def _weapon_detail_crop(image: np.ndarray, screenInfo: ScreenInfo) -> np.ndarray:
+    """Crop only the name/level/rank detail area used for weapon review."""
+    regions = (
+        screenInfo.weapons.name,
+        screenInfo.weapons.level,
+        screenInfo.weapons.rank,
+    )
+    left = min(int(region.x) for region in regions)
+    top = min(int(region.y) for region in regions)
+    right = max(int(region.x + region.w) for region in regions)
+    bottom = max(int(region.y + region.h) for region in regions)
+    return image[top:bottom, left:right]
+
+
+def _save_weapon_review(
+    path: Path,
+    image: np.ndarray,
+    screenInfo: ScreenInfo,
+    *,
+    fingerprint: str,
+    ocr_result,
+    reasons: tuple[str, ...],
+    candidate: str | None,
+) -> dict:
+    path.mkdir(parents=True, exist_ok=True)
+    stem = f"weapon-{fingerprint[:16]}"
+    image_path = path / f"{stem}.png"
+    metadata_path = path / f"{stem}.json"
+
+    if not image_path.exists():
+        crop = _weapon_detail_crop(image, screenInfo)
+        if crop.size == 0 or not cv2.imwrite(str(image_path), crop):
+            raise OSError(f"Unable to save weapon review crop: {image_path}")
+
+    write_review_metadata(
+        metadata_path,
+        scanner="weapons",
+        reason="+".join(reasons),
+        fingerprint=fingerprint,
+        crop_file=image_path.name,
+        ocr_result=ocr_result,
+        owned=None,
+    )
+    return {
+        "kind": "weapon",
+        "image": image_path,
+        "metadata": metadata_path,
+        "owned": None,
+        "candidate": candidate,
+        "confidence": ocr_result.confidence,
+        "reasons": reasons,
+    }
+
 WEAPON_ASCENSION_LEVELS = [20, 40, 50, 60, 70, 80, 90]
 
 def getWeaponPages(screenInfo: ScreenInfo) -> int:
@@ -82,34 +145,63 @@ def processWeapon(name: str, levelText: str, rankText: str) -> dict[str, dict[st
         }
     }
 
-def processGridItem(inventory: dict, weapons: list, image: np.ndarray, screenInfo: ScreenInfo, _cache: dict) -> tuple[dict[str, int], list[dict[str, dict[str, int]]]]:
+def processGridItem(
+    inventory: dict,
+    weapons: list,
+    reviews: list,
+    review_path: Path,
+    image: np.ndarray,
+    screenInfo: ScreenInfo,
+    _cache: dict,
+) -> bool:
 
-    nameImage = image[screenInfo.weapons.name.y:screenInfo.weapons.name.y + screenInfo.weapons.name.h, screenInfo.weapons.name.x:screenInfo.weapons.name.x + screenInfo.weapons.name.w]
+    nameImage = image[
+        screenInfo.weapons.name.y:
+        screenInfo.weapons.name.y + screenInfo.weapons.name.h,
+        screenInfo.weapons.name.x:
+        screenInfo.weapons.name.x + screenInfo.weapons.name.w,
+    ]
     nameImage = convertToBlackWhite(nameImage)
-    nameHash = hash(nameImage.tobytes())
+    nameFingerprint = hashlib.sha256(nameImage.tobytes()).hexdigest()
+    nameCacheKey = ("weapon-name", nameFingerprint)
 
-    if nameHash in _cache:
-        name = _cache[nameHash]
+    if nameCacheKey in _cache:
+        name, nameResult = _cache[nameCacheKey]
     else:
-        name = imageToString(nameImage, profile=NAME_PROFILE).lower()
-        result = best_match(
-            name,
+        nameResult = imageToResult(nameImage, profile=NAME_PROFILE)
+        rawName = nameResult.text.lower()
+        name = best_match(
+            rawName,
             weaponsID,
             cutoff=WEAPON_INVENTORY_NAME_CUTOFF,
         )
-        if result is None:
-            result = best_match(
-                name,
+        if name is None:
+            name = best_match(
+                rawName,
                 itemsID,
                 cutoff=ITEM_NAME_CUTOFF,
             )
-        if result is None:
-            raise ValueError(
-                f"Unable to identify weapon inventory entry from OCR result: {name!r}"
-            )
+        _cache[nameCacheKey] = (name, nameResult)
 
-        _cache[nameHash] = result
-        name = result
+    reviewReasons = []
+    if name is None:
+        reviewReasons.append("unknown_name")
+    if nameResult.confidence < DEFAULT_REVIEW_CONFIDENCE:
+        reviewReasons.append("low_confidence")
+
+    if reviewReasons:
+        reviews.append(
+            _save_weapon_review(
+                review_path,
+                image,
+                screenInfo,
+                fingerprint=nameFingerprint,
+                ocr_result=nameResult,
+                reasons=tuple(reviewReasons),
+                candidate=name,
+            )
+        )
+        return True
     
     if name in itemsID:
         valueImage = image[screenInfo.weapons.value.y:screenInfo.weapons.value.y + screenInfo.weapons.value.h, screenInfo.weapons.value.x:screenInfo.weapons.value.x + screenInfo.weapons.value.w]
@@ -158,10 +250,19 @@ def processGridItem(inventory: dict, weapons: list, image: np.ndarray, screenInf
         return True
     return True
 
-def weaponScraper(controller: WindowsInputController, x: float, y: float, screenInfo: ScreenInfo, cancel_event=None) -> tuple[dict[str, int], list[dict[str, dict[str, int]]]]:
+def weaponScraper(
+    controller: WindowsInputController,
+    x: float,
+    y: float,
+    screenInfo: ScreenInfo,
+    cancel_event=None,
+    start_date: str = "",
+) -> tuple[dict[str, int], list[dict[str, dict[str, int]]], list[dict]]:
     inventory = dict()
     weapons = list()
+    reviews = list()
     _cache = dict()
+    review_path = basePATH / "logs" / "fail" / start_date
 
     check_cancelled(cancel_event)
     controller.pressKey(cfg.get(cfg.inventoryKeybind), 2, False)
@@ -178,7 +279,7 @@ def weaponScraper(controller: WindowsInputController, x: float, y: float, screen
                 global_index = page * (ROWS * COLS) + row * COLS + col
                 if global_index >= weaponCount:
                     del _cache
-                    return inventory, weapons
+                    return inventory, weapons, reviews
 
                 center_x = screenInfo.weapons.start.x + (col * (screenInfo.weapons.start.w + screenInfo.offsets.page.x)) + screenInfo.weapons.start.w // 2
                 center_y = screenInfo.weapons.start.y + (row * (screenInfo.weapons.start.h + screenInfo.offsets.page.y)) + screenInfo.weapons.start.h // 2
@@ -186,7 +287,15 @@ def weaponScraper(controller: WindowsInputController, x: float, y: float, screen
                 controller.leftClick(center_x, center_y)
                 image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor)
                 
-                continueScraping = processGridItem(inventory, weapons, image, screenInfo, _cache)
+                continueScraping = processGridItem(
+                    inventory,
+                    weapons,
+                    reviews,
+                    review_path,
+                    image,
+                    screenInfo,
+                    _cache,
+                )
                 if not continueScraping:
                     del _cache
                     return inventory, weapons
