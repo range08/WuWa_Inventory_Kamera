@@ -89,7 +89,11 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
     if levelHash in _cache:
         levelText = _cache[levelHash]
     else:
-        levelText = imageToString(levelImage, profile=LEVEL_PROFILE)
+        levelResult = require_confidence(
+            imageToResult(levelImage, profile=LEVEL_PROFILE),
+            field="resonator-level",
+        )
+        levelText = levelResult.text
         _cache[levelHash] = levelText
 
     try:
@@ -141,7 +145,11 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     if levelHash in _cache:
         levelText = _cache[levelHash]
     else:
-        levelText = imageToString(levelImage, profile=LEVEL_PROFILE)
+        levelResult = require_confidence(
+            imageToResult(levelImage, profile=LEVEL_PROFILE),
+            field="equipped-weapon-level",
+        )
+        levelText = levelResult.text
         _cache[levelHash] = levelText
     
     rankImage = image[screenInfo.characters.weaponRank.y:screenInfo.characters.weaponRank.y + screenInfo.characters.weaponRank.h, screenInfo.characters.weaponRank.x:screenInfo.characters.weaponRank.x + screenInfo.characters.weaponRank.w]
@@ -151,7 +159,11 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     if rankHash in _cache:
         rank = _cache[rankHash]
     else:
-        rank = imageToString(rankImage, profile=INTEGER_PROFILE)
+        rankResult = require_confidence(
+            imageToResult(rankImage, profile=INTEGER_PROFILE),
+            field="equipped-weapon-rank",
+        )
+        rank = rankResult.text
         _cache[rankHash] = rank
 
     try:
@@ -183,7 +195,11 @@ def scrapeSkills(controller: WindowsInputController, screenInfo: ScreenInfo, cha
             if levelHash in _cache:
                 level = _cache[levelHash]
             else:
-                level = imageToString(levelImage, profile=INTEGER_PROFILE)
+                levelResult = require_confidence(
+                    imageToResult(levelImage, profile=INTEGER_PROFILE),
+                    field=f"skill-level-{SKILL_LEGENDS[index]}",
+                )
+                level = levelResult.text
                 _cache[levelHash] = level
 
             try:
