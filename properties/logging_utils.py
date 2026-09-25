@@ -12,12 +12,14 @@ _ASSIGNMENT_PATTERN = re.compile(
     r"access[_-]?token|"
     r"refresh[_-]?token|"
     r"password|passwd|"
-    r"client[_-]?secret|"
-    r"authorization"
+    r"client[_-]?secret"
     r")\b(\s*[:=]\s*)([^\s,;]+)"
 )
 _AUTH_BEARER_PATTERN = re.compile(
     r"(?i)(\bauthorization\b\s*[:=]\s*bearer\s+)[^\s,;]+"
+)
+_AUTH_VALUE_PATTERN = re.compile(
+    r"(?i)(\bauthorization\b\s*[:=]\s*)(?!bearer\b)[^\s,;]+"
 )
 _BEARER_PATTERN = re.compile(r"(?i)\bBearer\s+[^\s,;]+")
 
@@ -28,6 +30,10 @@ def redact_log_text(text: str) -> str:
         text = str(text)
 
     text = _AUTH_BEARER_PATTERN.sub(
+        lambda match: f"{match.group(1)}<redacted>",
+        text,
+    )
+    text = _AUTH_VALUE_PATTERN.sub(
         lambda match: f"{match.group(1)}<redacted>",
         text,
     )
