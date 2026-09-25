@@ -36,9 +36,10 @@ class SourceCacheTests(unittest.TestCase):
             provider.revision_url(): json.dumps({"sha": revision}).encode(),
             provider.metadata_url(): readme,
         }
-        for path in provider.required_paths("ko"):
-            if path != "README.md":
-                payloads[provider.raw_url(path)] = f"fixture:{path}".encode()
+        for language in ("ko", "en"):
+            for path in provider.required_paths(language):
+                if path != "README.md":
+                    payloads[provider.raw_url(path)] = f"fixture:{path}".encode()
 
         return provider, revision, payloads
 
@@ -129,6 +130,20 @@ class SourceCacheTests(unittest.TestCase):
 
             with self.assertRaises(SourceCacheError):
                 cache.latest_valid(provider, "en")
+
+    def test_same_revision_keeps_languages_in_separate_caches(self):
+        provider, _, payloads = self.make_fixture()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = SourceCache(tmp, FakeFetcher(payloads))
+            ko_manifest = cache.sync(provider, "ko")
+            en_manifest = cache.sync(provider, "en")
+
+            self.assertNotEqual(ko_manifest, en_manifest)
+            self.assertEqual(ko_manifest.parent.name, "ko")
+            self.assertEqual(en_manifest.parent.name, "en")
+            self.assertEqual(cache.latest_valid(provider, "ko"), ko_manifest)
+            self.assertEqual(cache.latest_valid(provider, "en"), en_manifest)
 
 
 if __name__ == "__main__":
