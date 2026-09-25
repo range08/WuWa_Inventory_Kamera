@@ -73,6 +73,15 @@ class DataUpdater(QObject):
         except (SourceCacheError, MappingGenerationError, ValueError, OSError) as exc:
             logger.error("Game-data update failed: %s", exc, exc_info=True)
             self.updateFailed.emit(str(exc))
+        except Exception as exc:
+            logger.critical(
+                "Unexpected game-data update failure: %s",
+                exc,
+                exc_info=True,
+            )
+            self.updateFailed.emit(
+                "Unexpected game-data update failure. See the debug log for details."
+            )
         finally:
             self.updateFinished.emit()
 
