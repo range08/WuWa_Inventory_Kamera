@@ -86,6 +86,34 @@ def _insert_unique(target: dict, normalized: str, value: Any, source_key: str) -
     target[normalized] = value
 
 
+def _insert_unambiguous(
+    target: dict,
+    ambiguous: set[str],
+    normalized: str,
+    value: Any,
+    source_key: str,
+) -> None:
+    """Keep only names that identify exactly one source record.
+
+    OCR-based scanners cannot safely choose between different IDs that share the
+    same visible name. Once a collision is detected, remove that name entirely
+    and remember it so later records cannot reintroduce an arbitrary winner.
+    """
+
+    if not normalized:
+        raise MappingGenerationError(f"Empty normalized name for {source_key}")
+    if normalized in ambiguous:
+        return
+
+    if normalized not in target:
+        target[normalized] = value
+        return
+
+    if target[normalized] != value:
+        target.pop(normalized, None)
+        ambiguous.add(normalized)
+
+
 def generate_characters(
     role_info: list[dict],
     textmap: dict[str, str],
@@ -114,6 +142,7 @@ def generate_characters(
 
 def generate_weapons(weapon_info: list[dict], textmap: dict[str, str]) -> dict[str, dict]:
     result: dict[str, dict] = {}
+    ambiguous: set[str] = set()
     for weapon in weapon_info:
         name = _localized(textmap, weapon.get("WeaponName"))
         weapon_id = weapon.get("ModelId", weapon.get("ItemId"))
@@ -126,12 +155,19 @@ def generate_weapons(weapon_info: list[dict], textmap: dict[str, str]) -> dict[s
             "rarity": rarity,
             "image": image_filename(str(weapon.get("Icon", ""))),
         }
-        _insert_unique(result, normalize_name(name), value, str(weapon.get("WeaponName")))
+        _insert_unambiguous(
+            result,
+            ambiguous,
+            normalize_name(name),
+            value,
+            str(weapon.get("WeaponName")),
+        )
     return result
 
 
 def generate_items(item_info: list[dict], textmap: dict[str, str]) -> dict[str, dict]:
     result: dict[str, dict] = {}
+    ambiguous: set[str] = set()
     for item in item_info:
         item_id = item.get("Id")
         name = _localized(textmap, item.get("Name"))
@@ -142,12 +178,19 @@ def generate_items(item_info: list[dict], textmap: dict[str, str]) -> dict[str, 
             "name": name,
             "image": image_filename(str(item.get("Icon", ""))),
         }
-        _insert_unique(result, normalize_name(name), value, str(item.get("Name")))
+        _insert_unambiguous(
+            result,
+            ambiguous,
+            normalize_name(name),
+            value,
+            str(item.get("Name")),
+        )
     return result
 
 
 def generate_echoes(monster_info: list[dict], textmap: dict[str, str]) -> dict[str, int]:
     result: dict[str, int] = {}
+    ambiguous: set[str] = set()
     for monster in monster_info:
         monster_id = monster.get("Id")
         if not isinstance(monster_id, int) or monster_id >= 350_000_000:
@@ -155,20 +198,31 @@ def generate_echoes(monster_info: list[dict], textmap: dict[str, str]) -> dict[s
         name = _localized(textmap, monster.get("Name"))
         if name is None:
             continue
-        _insert_unique(result, normalize_name(name), monster_id, str(monster.get("Name")))
+        _insert_unambiguous(
+            result,
+            ambiguous,
+            normalize_name(name),
+            monster_id,
+            str(monster.get("Name")),
+        )
     return result
 
 
 def generate_achievements(achievement_info: list[dict], textmap: dict[str, str]) -> dict[str, int]:
     result: dict[str, int] = {}
+    ambiguous: set[str] = set()
     for achievement in achievement_info:
         achievement_id = achievement.get("Id")
         name = _localized(textmap, achievement.get("Name"))
         if name is None or not isinstance(achievement_id, int):
             continue
-        if name in result and result[name] != achievement_id:
-            raise MappingGenerationError(f"Duplicate achievement name: {name}")
-        result[name] = achievement_id
+        _insert_unambiguous(
+            result,
+            ambiguous,
+            name,
+            achievement_id,
+            str(achievement.get("Name")),
+        )
     return result
 
 
