@@ -4,11 +4,12 @@ from scraping.utils import (
     achievementsID, definedText, copyToClipboard
 )
 from scraping.utils import (
-    screenshot, imageToString, convertToBlackWhite,
+    screenshot, imageToResult, convertToBlackWhite,
     WindowsInputController
 )
 from game.screenInfo import ScreenInfo
 from scraping.cancellation import check_cancelled
+from scraping.ocr_engine import require_confidence
 
 def processAchievement(image: np.ndarray, screenInfo: ScreenInfo, achievementName: str, _cache: dict) -> str | None:
     statusImage = image[screenInfo.achievements.status.y:screenInfo.achievements.status.y + screenInfo.achievements.status.h, screenInfo.achievements.status.x:screenInfo.achievements.status.x + screenInfo.achievements.status.w]
@@ -16,7 +17,11 @@ def processAchievement(image: np.ndarray, screenInfo: ScreenInfo, achievementNam
     statusHash = hash(statusImage.tobytes())
     if statusHash in _cache: statusText = _cache[statusHash]
     else:
-        statusText = imageToString(statusImage).lower()
+        statusResult = require_confidence(
+            imageToResult(statusImage),
+            field="achievement-status",
+        )
+        statusText = statusResult.text.lower()
         _cache[statusHash] = statusText
 
     if statusText == definedText['PrefabTextItem_128820487_Text'] or '/' in statusText: # MULTILANG
