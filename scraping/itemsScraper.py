@@ -1,4 +1,3 @@
-import re
 import cv2
 import hashlib
 import numpy as np
@@ -12,6 +11,7 @@ from scraping.utils import (
 from game.screenInfo import ScreenInfo
 from properties.config import cfg, basePATH
 from scraping.matching import ITEM_NAME_CUTOFF, best_match
+from scraping.parsing import ScanParseError, parse_quantity
 
 # Constants
 ROWS, COLS = 4, 6
@@ -37,11 +37,8 @@ def processItem(path: Path, image: np.ndarray, screenInfo: ScreenInfo, _cache: d
     
     quantityValid = True
     try:
-        valueText = re.sub(r'[^0-9]', '', info[2])
-        if not valueText:
-            raise ValueError("Quantity OCR returned no digits")
-        value = int(valueText)
-    except (IndexError, TypeError, ValueError):
+        value = parse_quantity(info[2])
+    except (IndexError, ScanParseError):
         value = None
         quantityValid = False
 
