@@ -74,12 +74,17 @@ class ReviewQueueTests(unittest.TestCase):
                 crop_file="item.png",
                 ocr_result=result,
                 owned=123,
+                candidate="basicresonancepotion",
             )
 
             payload = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(payload["scanner"], "items")
             self.assertEqual(payload["ocr"]["confidence"], 0.73)
             self.assertEqual(payload["owned"], 123)
+            self.assertEqual(
+                payload["candidate"],
+                "basicresonancepotion",
+            )
             self.assertFalse(payload["privacy"]["full_screen_saved"])
             self.assertFalse(
                 payload["privacy"]["account_identifier_region_saved"]
