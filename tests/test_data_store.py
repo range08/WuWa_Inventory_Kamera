@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import scraping.data_store as data_store
 from scraping.data_store import GeneratedDataStore, GameDataStoreError
 
 
@@ -115,6 +116,56 @@ class GeneratedDataStoreTests(unittest.TestCase):
 
             with self.assertRaisesRegex(GameDataStoreError, "rarity"):
                 GeneratedDataStore().reload(root)
+
+
+    def test_typed_module_accessors_resolve_loaded_records(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(root)
+
+            snapshots = {
+                "items": dict(data_store.itemsID),
+                "characters": dict(data_store.charactersID),
+                "weapons": dict(data_store.weaponsID),
+                "echoes": dict(data_store.echoesID),
+                "achievements": dict(data_store.achievementsID),
+                "echo_stats": dict(data_store.echoStats),
+                "defined_text": dict(data_store.definedText),
+                "sonata": list(data_store.sonataName),
+            }
+            try:
+                data_store.reload_generated_mappings(root)
+
+                self.assertEqual(data_store.get_item("item")["id"], 1)
+                self.assertEqual(data_store.get_weapon("weapon")["rarity"], 5)
+                self.assertEqual(data_store.get_character_id("character"), 2)
+                self.assertEqual(data_store.get_echo_id("echo"), 4)
+                self.assertEqual(
+                    data_store.get_achievement_id("Achievement"),
+                    5,
+                )
+                self.assertEqual(data_store.find_item_by_id(1)["name"], "Item")
+                self.assertEqual(
+                    data_store.find_item_by_display_name("Item")["id"],
+                    1,
+                )
+            finally:
+                data_store.itemsID.clear()
+                data_store.itemsID.update(snapshots["items"])
+                data_store.charactersID.clear()
+                data_store.charactersID.update(snapshots["characters"])
+                data_store.weaponsID.clear()
+                data_store.weaponsID.update(snapshots["weapons"])
+                data_store.echoesID.clear()
+                data_store.echoesID.update(snapshots["echoes"])
+                data_store.achievementsID.clear()
+                data_store.achievementsID.update(snapshots["achievements"])
+                data_store.echoStats.clear()
+                data_store.echoStats.update(snapshots["echo_stats"])
+                data_store.definedText.clear()
+                data_store.definedText.update(snapshots["defined_text"])
+                data_store.sonataName.clear()
+                data_store.sonataName.extend(snapshots["sonata"])
 
 
 if __name__ == "__main__":
