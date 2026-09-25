@@ -57,14 +57,21 @@ def getRarity(image: np.ndarray):
     for rarity, (lower, upper) in RARITY_BOUNDS.items():
         if np.any(cv2.inRange(image, lower, upper)):
             return rarity
-    return 1
+    return None
 
 def getEchoPages(screenInfo: ScreenInfo) -> int:
     image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor)[screenInfo.echoes.page.y:screenInfo.echoes.page.y + screenInfo.echoes.page.h, screenInfo.echoes.page.x:screenInfo.echoes.page.x + screenInfo.echoes.page.w]
-    echoCount = imageToString(image, allowedChars=string.digits + '/').split('/')[0]
-    
-    try: return int(echoCount), int(np.ceil(int(echoCount) / 24))
-    except ValueError: return 24, 1
+    echoCountText = imageToString(
+        image, allowedChars=string.digits + '/'
+    ).split('/')[0]
+
+    try:
+        echoCount = int(echoCountText)
+    except ValueError as exc:
+        raise ValueError(
+            f"Unable to parse echo inventory count: {echoCountText!r}"
+        ) from exc
+    return echoCount, int(np.ceil(echoCount / 24))
 
 def processEcho(name: str, level: int, tuneLv: int, sonata: str, rarity: int, stats: dict) -> dict[str, dict[int, int, dict]]:
     result = getMatches(name, echoesID, 1, 0.9)
@@ -125,9 +132,10 @@ def processStats(image: np.ndarray, screenInfo: ScreenInfo, _cache: dict) -> dic
                 stats[stat].update({f"{statName}%": float(statValue[:-1])})
             else:
                 stats[stat].update({statName: int(statValue)})
-        except (AttributeError, TypeError, ValueError):
-            logger.debug("Could not parse echo stat value %r for %s", statValue, statName)
-            stats[stat].update({statName: statValue})
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Unable to parse echo stat value {statValue!r} for {statName!r}"
+            ) from exc
 
     return tuneLv, dict(stats)
 
@@ -167,16 +175,22 @@ def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, 
             rarity = info[1]
         else:
             rarity = getRarity(echoCard)
+            if rarity is None:
+                raise ValueError(f"Unable to determine echo rarity for {name!r}")
             _cache[echoHash].append(rarity)
-        
+
         if rarity >= cfg.get(cfg.echoMinRarity):
             if len(info[0]) <= 2:
                 logger.debug("Echo level OCR was incomplete for %s", name)
                 return True
             levelText = info[0][2]
             
-            try: level = int(levelText)
-            except ValueError: level = 0
+            try:
+                level = int(levelText)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Unable to parse echo level from OCR result: {levelText!r}"
+                ) from exc
             level = min(25, level)
 
             if level >= cfg.get(cfg.echoMinLevel):
