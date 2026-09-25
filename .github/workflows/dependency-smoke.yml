@@ -30,6 +30,8 @@ jobs:
 
     runs-on: windows-latest
     timeout-minutes: 25
+    env:
+      QT_QPA_PLATFORM: offscreen
 
     steps:
       - name: Check out repository
@@ -72,6 +74,13 @@ jobs:
           assert DataUpdater is not None
           assert WuWaInventoryKamera is not None
 
+          app = QApplication.instance() or QApplication([])
+          window = WuWaInventoryKamera()
+          assert window.windowTitle() == "WuWa Inventory Kamera"
+          assert window.settingInterface.roverGender is not None
+          assert window.settingInterface.roverElement is not None
+          window.close()
+
           engine = RapidOCR()
           assert callable(engine)
           adapter = OCREngine(engine)
@@ -81,6 +90,7 @@ jobs:
           print("numpy:", numpy.__version__)
           print("onnxruntime:", onnxruntime.__version__)
           print("opencv:", cv2.__version__)
+          app.quit()
           '@ | python -
 
       - name: Compile project
