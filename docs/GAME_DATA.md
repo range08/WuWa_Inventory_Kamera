@@ -38,3 +38,28 @@ Textmaps/
 ```
 
 The 3.6 source layout is materially different from the legacy updater's `TextMap/<lang>/MultiText.json` and `ConfigDB/*.json` assumptions. The provider layer must isolate this difference from scanner code.
+
+
+## Manual update command
+
+From the repository root:
+
+```powershell
+python -m tools.update_game_data --language ko --ref 3.6
+```
+
+For English:
+
+```powershell
+python -m tools.update_game_data --language en --ref 3.6
+```
+
+The command:
+
+1. resolves the selected upstream ref to a concrete 40-character Git commit SHA;
+2. downloads only the required source inputs into the ignored `data/source/` cache;
+3. writes a manifest containing game/resource versions, changelist, revision, sizes, and SHA-256 hashes;
+4. validates every cached file against the manifest;
+5. generates the legacy-compatible scanner mappings into `data/`.
+
+The raw source cache and generated data remain ignored by git.
