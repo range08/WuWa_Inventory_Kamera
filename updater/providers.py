@@ -13,6 +13,9 @@ from pathlib import PurePosixPath
 from urllib.parse import quote
 
 
+DEFAULT_GAME_DATA_REF = "3.6"
+
+
 @dataclass(frozen=True)
 class SourceMetadata:
     repository: str
@@ -37,7 +40,7 @@ class ArikatsuDataProvider:
     _RESOURCE_VERSION_RE = re.compile(r"Resource Version:\s*([^<\r\n]+)", re.IGNORECASE)
     _CHANGELIST_RE = re.compile(r"Changelist:\s*([^<\r\n]+)", re.IGNORECASE)
 
-    def __init__(self, ref: str = "3.6") -> None:
+    def __init__(self, ref: str = DEFAULT_GAME_DATA_REF) -> None:
         if not ref or any(part in ref for part in ("..", "\\", "\x00")):
             raise ValueError("Invalid source ref")
         self.ref = ref
