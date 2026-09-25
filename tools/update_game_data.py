@@ -10,7 +10,7 @@ from updater.mapping_generator import (
     generate_from_cache,
     generated_mappings_current,
 )
-from updater.providers import ArikatsuDataProvider
+from updater.providers import ArikatsuDataProvider, DEFAULT_GAME_DATA_REF
 from updater.source_cache import SourceCache
 
 
@@ -18,7 +18,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Download validated Wuthering Waves Global data inputs and generate local scanner mappings."
     )
-    parser.add_argument("--ref", default="3.6", help="Upstream branch/tag/commit to use, for example 3.6.")
+    parser.add_argument(
+        "--ref",
+        default=DEFAULT_GAME_DATA_REF,
+        help=(
+            "Upstream branch/tag/commit to use "
+            f"(default: {DEFAULT_GAME_DATA_REF})."
+        ),
+    )
     parser.add_argument("--language", default="en", help="Game text language code, for example en or ko.")
     parser.add_argument(
         "--cache-dir",
