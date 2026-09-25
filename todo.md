@@ -46,8 +46,8 @@ Design goal: avoid hard-coding the project to 3.6 so that 3.7+ updates are mostl
 - [x] Audit mutable default arguments such as `loadFile(..., default={})`.
 - [x] Ensure OCR failure cannot silently become a plausible value such as level 1 or quantity 1 without an error marker.
 - [x] Fix queue/error propagation so a scraper subprocess exception is visible to the UI.
-- [ ] Review item-page termination logic for false duplicate detection.
-- [ ] Review off-by-one handling on the final weapon/echo/item page. Weapon and Echo count boundaries are fixed; item termination remains pending.
+- [x] Review item-page termination logic for false duplicate detection; replaced quantity-based duplicate counting with repeated-viewport fingerprint detection.
+- [x] Review off-by-one handling on the final weapon/echo/item page. Weapon/Echo use global count boundaries; items now terminate on a repeated viewport instead of a synthetic item count.
 - [ ] Confirm every scanner restores the game UI to a predictable state on failure/cancel.
 - [x] Add a single structured exception boundary around each scraper.
 
@@ -174,8 +174,8 @@ Start with 1920x1080 fullscreen.
 - [ ] Verify Development Items and Resources tabs.
 - [ ] Verify quantities from 1 to large currency values.
 - [ ] Verify duplicate grid behavior.
-- [ ] Replace `ceil(quantity / 999)` page-termination heuristic if obsolete.
-- [ ] Add explicit grid/end detection.
+- [x] Replace `ceil(quantity / 999)` page-termination heuristic with viewport fingerprint detection.
+- [x] Add explicit grid/end detection with a repeated-viewport signature and bounded 256-viewport safety limit.
 - [ ] Ensure commas/punctuation do not corrupt quantities.
 - [ ] Preserve unknown items for manual review.
 - [ ] Test newly added materials.
