@@ -195,54 +195,59 @@ def scrapers(
         for scraper in scraperEnabled:
             controller.pressKey('esc', .5)
 
-            match(scraper):
-                case 'characters':
-                    resonator = resonatorScraper(controller, screenInfo)
-                case 'weapons':
-                    i, w = weaponScraper(
-                        controller,
-                        screenInfo.scrapers.weapons.x,
-                        screenInfo.scrapers.weapons.y,
-                        screenInfo,
-                    )
-                    inventory.update(i)
-                    weapons.extend(w)
-                case 'echoes':
-                    echoes = echoScraper(
-                        controller,
-                        screenInfo.scrapers.echoes.x,
-                        screenInfo.scrapers.echoes.y,
-                        screenInfo,
-                    )
-                case 'devItems':
-                    i, f = itemsScraper(
-                        START_DATE,
-                        controller,
-                        screenInfo.scrapers.devItems.x,
-                        screenInfo.scrapers.devItems.y,
-                        screenInfo,
-                    )
-                    inventory.update(i)
-                    failed.extend(f)
-                case 'resources':
-                    i, f = itemsScraper(
-                        START_DATE,
-                        controller,
-                        screenInfo.scrapers.resources.x,
-                        screenInfo.scrapers.resources.y,
-                        screenInfo,
-                    )
-                    inventory.update(i)
-                    failed.extend(f)
-                case 'achievements':
-                    achievements = achievementScraper(controller, screenInfo)
-                case _:
-                    raise ValueError(f"Unknown scraper: {scraper}")
+            try:
+                match(scraper):
+                    case 'characters':
+                        resonator = resonatorScraper(controller, screenInfo)
+                    case 'weapons':
+                        i, w = weaponScraper(
+                            controller,
+                            screenInfo.scrapers.weapons.x,
+                            screenInfo.scrapers.weapons.y,
+                            screenInfo,
+                        )
+                        inventory.update(i)
+                        weapons.extend(w)
+                    case 'echoes':
+                        echoes = echoScraper(
+                            controller,
+                            screenInfo.scrapers.echoes.x,
+                            screenInfo.scrapers.echoes.y,
+                            screenInfo,
+                        )
+                    case 'devItems':
+                        i, f = itemsScraper(
+                            START_DATE,
+                            controller,
+                            screenInfo.scrapers.devItems.x,
+                            screenInfo.scrapers.devItems.y,
+                            screenInfo,
+                        )
+                        inventory.update(i)
+                        failed.extend(f)
+                    case 'resources':
+                        i, f = itemsScraper(
+                            START_DATE,
+                            controller,
+                            screenInfo.scrapers.resources.x,
+                            screenInfo.scrapers.resources.y,
+                            screenInfo,
+                        )
+                        inventory.update(i)
+                        failed.extend(f)
+                    case 'achievements':
+                        achievements = achievementScraper(controller, screenInfo)
+                    case _:
+                        raise ValueError(f"Unknown scraper: {scraper}")
 
-            if scraper not in ['characters', 'achievements']:
-                if '2' not in inventory or inventory.get('2') == 0:
-                    shell = getShell(screenInfo)
-                    inventory = {**shell, **inventory}
+                if scraper not in ['characters', 'achievements']:
+                    if '2' not in inventory or inventory.get('2') == 0:
+                        shell = getShell(screenInfo)
+                        inventory = {**shell, **inventory}
+            except Exception as exc:
+                raise RuntimeError(
+                    f"{scraper} scanner failed: {exc}"
+                ) from exc
 
         controller.pressKey('esc')
 
