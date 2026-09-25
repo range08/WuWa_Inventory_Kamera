@@ -71,12 +71,25 @@ def _insert_unique(target: dict, normalized: str, value: Any, source_key: str) -
     target[normalized] = value
 
 
-def generate_characters(role_info: list[dict], textmap: dict[str, str]) -> dict[str, int]:
+def generate_characters(
+    role_info: list[dict],
+    textmap: dict[str, str],
+    excluded_role_ids: set[int] | None = None,
+) -> dict[str, int]:
     result: dict[str, int] = {}
+    excluded_role_ids = excluded_role_ids or set()
+
     for role in role_info:
         role_id = role.get("Id")
         if not isinstance(role_id, int) or role_id >= 5000:
             continue
+        if role_id in excluded_role_ids:
+            continue
+        if role.get("ParentId", 0) != 0:
+            continue
+        if "RoleType" in role and role.get("RoleType") != 1:
+            continue
+
         name = _localized(textmap, role.get("Name"))
         if name is None:
             continue
@@ -203,8 +216,23 @@ def generate_from_cache(cache_dir: Path | str, output_dir: Path | str) -> dict[s
     output_dir = Path(output_dir)
 
     textmap = load_textmap(cache_dir / "Textmaps" / _manifest_language(cache_dir) / "multi_text" / "MultiText.json")
+    main_role_config = load_json(
+        cache_dir / "BinData/main_role_change/mainroleconfig.json"
+    )
+    if not isinstance(main_role_config, list):
+        raise MappingGenerationError("Main-role configuration must be a list")
+    main_role_ids = {
+        entry["Id"]
+        for entry in main_role_config
+        if isinstance(entry, dict) and isinstance(entry.get("Id"), int)
+    }
+
     outputs = {
-        "characters.json": generate_characters(load_json(cache_dir / "BinData/role/roleinfo.json"), textmap),
+        "characters.json": generate_characters(
+            load_json(cache_dir / "BinData/role/roleinfo.json"),
+            textmap,
+            excluded_role_ids=main_role_ids,
+        ),
         "weapons.json": generate_weapons(load_json(cache_dir / "BinData/weapon/weaponconf.json"), textmap),
         "items.json": generate_items(load_json(cache_dir / "BinData/item/iteminfo.json"), textmap),
         "echoes.json": generate_echoes(load_json(cache_dir / "BinData/monster_Info/monsterinfo.json"), textmap),
