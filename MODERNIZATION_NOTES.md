@@ -169,3 +169,13 @@ The same workflow then ran the updater in explicit offline mode and reported `re
 - Pinned `pywin32==312`.
 - Added a Windows dependency smoke matrix for Python 3.12, 3.13, and 3.14.
 - Added `version.py` as the single application version source used by cx_Freeze package metadata and output paths.
+
+
+## Scanner layout safety
+
+- Added a dependency-free layout policy and unit tests.
+- The scanner now reads the actual Win32 client-area bounds and target monitor bounds before spawning scanner input.
+- Until DPI-aware client-relative transforms are implemented, non-100% Windows scaling is rejected.
+- The client area must exactly fill the target monitor because current screenshots/clicks are monitor-relative.
+- Resolutions without an explicit ROI profile are rejected rather than dynamically scaled for live automation.
+- Existing dynamic scaling code remains available internally, but scanner startup no longer relies on it for unverified layouts.
