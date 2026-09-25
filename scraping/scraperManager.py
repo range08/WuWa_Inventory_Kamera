@@ -243,13 +243,15 @@ def scrapers(
                         weapons.extend(w)
                         failed.extend(r)
                     case 'echoes':
-                        echoes = echoScraper(
+                        echoes, r = echoScraper(
                             controller,
                             screenInfo.scrapers.echoes.x,
                             screenInfo.scrapers.echoes.y,
                             screenInfo,
-                            cancelFLAG,
+                            cancel_event=cancelFLAG,
+                            start_date=START_DATE,
                         )
+                        failed.extend(r)
                     case 'devItems':
                         i, f = itemsScraper(
                             START_DATE,
