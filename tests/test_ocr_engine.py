@@ -6,6 +6,8 @@ from scraping.ocr_engine import (
     OCREngine,
     OCRError,
     OCRProfile,
+    STAT_NAME_PROFILE,
+    STAT_VALUE_PROFILE,
 )
 
 
@@ -60,6 +62,25 @@ class OCREngineTests(unittest.TestCase):
         ).recognize(object(), NAME_PROFILE)
 
         self.assertEqual(result.text, "Changli")
+
+    def test_stat_profiles_preserve_korean_names_and_numeric_values(self):
+        name_result = OCREngine(
+            lambda _image: ([token(0, 0, "공명 스킬 피해 보너스", 0.93)], 0.01)
+        ).recognize(object(), STAT_NAME_PROFILE)
+        value_result = OCREngine(
+            lambda _image: (
+                [
+                    token(0, 0, "22.0%", 0.96),
+                    token(40, 0, "150", 0.97),
+                ],
+                0.01,
+            )
+        ).recognize(object(), STAT_VALUE_PROFILE)
+
+        self.assertEqual(name_result.text, "공명스킬피해보너스")
+        self.assertEqual(value_result.text, "22.0% 150")
+        self.assertGreater(name_result.confidence, 0.9)
+        self.assertGreater(value_result.confidence, 0.9)
 
     def test_plain_two_token_list_is_not_mistaken_for_result_envelope(self):
         raw_tokens = [
