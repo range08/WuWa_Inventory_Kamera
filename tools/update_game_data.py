@@ -29,6 +29,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("data"),
         help="Directory for generated scanner mapping JSON files.",
     )
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Use the newest validated local cache for the selected ref/language without network access.",
+    )
     return parser
 
 
@@ -37,7 +42,10 @@ def main(argv: list[str] | None = None) -> int:
     provider = ArikatsuDataProvider(args.ref)
     cache = SourceCache(args.cache_dir)
 
-    manifest_path = cache.sync(provider, args.language)
+    if args.offline:
+        manifest_path = cache.latest_valid(provider, args.language)
+    else:
+        manifest_path = cache.sync(provider, args.language)
     counts = generate_from_cache(manifest_path.parent, args.output_dir)
     manifest = cache.validate(manifest_path)
 
