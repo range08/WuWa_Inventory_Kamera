@@ -227,8 +227,10 @@ def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, 
                 tuneLv, stats = processStats(image, screenInfo, _cache)
                 sonata = getSonata(controller, screenInfo, _cache)
                 echoes.append(processEcho(name, level, tuneLv, sonata, rarity, stats))
-                return True
-        return False
+
+        # Rarity/level filters decide whether this echo is exported; they must
+        # not terminate scanning because later slots may still qualify.
+        return True
 
     return True
 
