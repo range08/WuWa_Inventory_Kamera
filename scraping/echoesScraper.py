@@ -139,14 +139,22 @@ def processStats(image: np.ndarray, screenInfo: ScreenInfo, _cache: dict) -> dic
     if nameHash in _cache:
         names = _cache[nameHash]
     else:
-        names = imageToString(nameImage, profile=STAT_NAME_PROFILE).lower().split('\n')
+        namesResult = require_confidence(
+            imageToResult(nameImage, profile=STAT_NAME_PROFILE),
+            field="echo-stat-names",
+        )
+        names = namesResult.text.lower().split('\n')
         names = matchStats(names)
         _cache[nameHash] = names
 
     if valueHash in _cache:
         values = _cache[valueHash]
     else:
-        values = imageToString(valueImage, profile=STAT_VALUE_PROFILE).split()
+        valuesResult = require_confidence(
+            imageToResult(valueImage, profile=STAT_VALUE_PROFILE),
+            field="echo-stat-values",
+        )
+        values = valuesResult.text.split()
         _cache[valueHash] = values
     if len(names) != len(values) or len(names) < 2:
         raise ValueError(
