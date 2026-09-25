@@ -99,6 +99,21 @@ Each run creates a timestamped directory under `logs/diagnostics/` containing on
 
 The updater records the exact upstream revision, game/resource versions, file hashes, and generated mapping hashes. Raw upstream game-data files stay in the ignored local cache and are not vendored into this repository.
 
+## OCR troubleshooting
+
+If scanning is rejected before input starts, first check the layout requirements: Windows display scaling must currently be 100%, the game client area must fill the target monitor, and the resolution must have an explicit ROI profile.
+
+If OCR fails or a result is sent to manual review:
+
+1. Confirm the in-game language matches the selected language in Settings.
+2. Regenerate the current mapping data, for example `python -m tools.update_game_data --language ko`.
+3. Use the no-click diagnostic command for the affected screen and inspect only the generated ROI crops.
+4. Check `logs/WuWaInventoryKamera.debug.log` for the field that failed.
+5. For item-review failures, inspect the paired PNG and JSON sidecar under `logs/fail/<scan-time>/`; the sidecar records OCR text/confidence and the failure reason.
+6. Do not share full-screen captures or any crop containing a UID/account identifier.
+
+OCR failures are intentionally surfaced rather than converted into guessed level, quantity, weapon, Echo, or character values.
+
 ## Tutorial
 
 1. **Prepare for Scanning**
