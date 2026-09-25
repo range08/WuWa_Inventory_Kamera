@@ -119,3 +119,14 @@ Weapon and Echo final-page boundaries were also corrected to stop at `global_ind
 - Added a bounded `MAX_VIEWPORTS` guard so unexpected UI/OCR behavior fails closed instead of scrolling indefinitely.
 - Failed-recognition screenshots now use a safe fingerprint-based filename rather than raw OCR text.
 - Invalid quantity OCR is represented as unknown (`None`) in the manual-review record instead of a fabricated quantity of 1.
+
+
+## OCR name matching and fail-closed recognition
+
+- Added a dependency-free matching helper with separate cutoffs for resonators, equipped weapons, weapon-inventory entries, items, and echoes so each field can be tuned independently from screenshot fixtures.
+- Added unit coverage for exact, fuzzy, rejected, and invalid-threshold matching.
+- Unknown resonator and equipped-weapon names no longer leak raw OCR text into otherwise valid character exports.
+- Unknown weapon inventory entries and echo names are surfaced as scanner errors instead of being silently skipped.
+- Echo stat parsing now rejects name/value count mismatches instead of truncating through `zip()`.
+- Incomplete echo level OCR now fails closed.
+- Sonata recognition now fails when no known set name is found and restores the scroll position through a `finally` block even on error.
