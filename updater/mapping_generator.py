@@ -17,6 +17,8 @@ class MappingGenerationError(RuntimeError):
 
 
 GENERATED_MANIFEST_NAME = "mapping_manifest.json"
+GENERATED_MANIFEST_SCHEMA = 2
+GENERATOR_VERSION = 2
 GENERATED_MAPPING_FILES = (
     "characters.json",
     "weapons.json",
@@ -432,7 +434,8 @@ def generate_from_cache(cache_dir: Path | str, output_dir: Path | str) -> dict[s
         }
 
     mapping_manifest = {
-        "schema_version": 1,
+        "schema_version": GENERATED_MANIFEST_SCHEMA,
+        "generator_version": GENERATOR_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source": _source_identity(source_manifest),
         "files": dict(sorted(generated_files.items())),
@@ -468,7 +471,11 @@ def generated_mappings_current(
     except MappingGenerationError:
         return None
 
-    if not isinstance(generated, dict) or generated.get("schema_version") != 1:
+    if (
+        not isinstance(generated, dict)
+        or generated.get("schema_version") != GENERATED_MANIFEST_SCHEMA
+        or generated.get("generator_version") != GENERATOR_VERSION
+    ):
         return None
     if generated.get("source") != _source_identity(source_manifest):
         return None
