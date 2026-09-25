@@ -123,7 +123,7 @@ Start with 1920x1080 fullscreen.
 - [x] Detect the Win32 client-area and target-monitor bounds before live automation; reject layouts that cannot safely use monitor-relative coordinates.
 - [ ] Account for Windows DPI scaling.
 - [ ] Support borderless-windowed if reliable.
-- [ ] Add a calibration/debug ROI overlay.
+- [x] Add a privacy-safe calibration/debug ROI overlay that draws click-through named ROIs over the live game without capturing or saving pixels.
 - [x] Add no-click screenshot diagnostic mode that saves only named scanner ROIs plus layout metadata, never a full-screen capture.
 - [x] Reject unsupported layouts before scanner input. Current safe policy requires 100% Windows scaling, a client area filling the entire target monitor, and an explicit ROI resolution.
 
