@@ -170,8 +170,6 @@ def managerStart(scraperEnabled: list):
                 f'Scanner process exited unexpectedly (exit code {scrapersProcess.exitcode}).',
             )
         else:
-            savingScraped(START_DATE=INVENTORY['date'])
-
             if len(FAILED) > 0:
                 result = (
                     'failed',
@@ -331,6 +329,7 @@ def scrapers(
         )
 
         scannedData = {
+            'inventory_wuwainventorykamera.json': (inventory, dict),
             'characters_wuwainventorykamera.json': (resonator, dict),
             'weapons_wuwainventorykamera.json': (weapons, list),
             'echoes_wuwainventorykamera.json': (echoes, list),
