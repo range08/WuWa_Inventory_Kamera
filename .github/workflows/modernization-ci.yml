@@ -1,12 +1,10 @@
 name: Modernization CI
 
 on:
-  push:
-    branches:
-      - "modernize/**"
   pull_request:
     branches:
       - master
+  workflow_dispatch:
 
 permissions:
   contents: read
