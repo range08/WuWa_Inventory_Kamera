@@ -1,10 +1,10 @@
 import logging
 
 from scraping.utils import (
-    screenshot, imageToString
+    screenshot, imageToResult
 )
 from game.screenInfo import ScreenInfo
-from scraping.ocr_engine import INTEGER_PROFILE
+from scraping.ocr_engine import INTEGER_PROFILE, require_confidence
 from scraping.retry import retry_call
 
 logger = logging.getLogger('ShellScraper')
@@ -27,7 +27,11 @@ def getShell(screenInfo: ScreenInfo):
             screenInfo.monitor,
             True,
         )
-        shellText = imageToString(image, profile=INTEGER_PROFILE).strip()
+        shellResult = require_confidence(
+            imageToResult(image, profile=INTEGER_PROFILE),
+            field="shell-credit",
+        )
+        shellText = shellResult.text.strip()
 
         try:
             return int(shellText)
