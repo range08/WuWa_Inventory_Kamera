@@ -78,10 +78,10 @@ def getEchoPages(screenInfo: ScreenInfo) -> int:
     return echoCount, int(np.ceil(echoCount / 24))
 
 def processEcho(name: str, level: int, tuneLv: int, sonata: str, rarity: int, stats: dict) -> dict[str, dict[int, int, dict]]:
-    result = getMatches(name, echoesID, 1, 0.9)
-    if result: name = result[0]
-    
-    echoID = str(echoesID.get(name, name))
+    if name not in echoesID:
+        raise ValueError(f"Unknown echo mapping key: {name!r}")
+
+    echoID = str(echoesID[name])
     return {
         echoID: {
             'level': level,
@@ -122,8 +122,13 @@ def processStats(image: np.ndarray, screenInfo: ScreenInfo, _cache: dict) -> dic
     else:
         values = imageToString(valueImage, profile=STAT_VALUE_PROFILE).split()
         _cache[valueHash] = values
-    tuneLv = max(0, len(values) - 2)
+    if len(names) != len(values) or len(names) < 2:
+        raise ValueError(
+            "Echo stat OCR produced mismatched fields: "
+            f"names={names!r}, values={values!r}"
+        )
 
+    tuneLv = max(0, len(values) - 2)
 
     for index, (statName, statValue) in enumerate(zip(names, values)):
         statName = echoStats.get(statName, statName)
@@ -146,22 +151,36 @@ def processStats(image: np.ndarray, screenInfo: ScreenInfo, _cache: dict) -> dic
 def getSonata(controller: WindowsInputController, screenInfo: ScreenInfo, _cache: dict):
     controller.moveMouse(screenInfo.echoes.mouseMovement.x, screenInfo.echoes.mouseMovement.y, .2)
     controller.mouseScroll(-screenInfo.scroll.sonata.y, .3)
-    image = screenshot(screenInfo.echoes.sonata.x, screenInfo.echoes.sonata.y, screenInfo.echoes.sonata.w, screenInfo.echoes.sonata.h, monitor=screenInfo.monitor)
-    sonataHash = hash(image.tobytes())
 
-    if sonataHash in _cache:
-        sonata = _cache[sonataHash]
-    else:
-        sonata = imageToString(image, '', bannedChars=' ').lower()
+    try:
+        image = screenshot(
+            screenInfo.echoes.sonata.x,
+            screenInfo.echoes.sonata.y,
+            screenInfo.echoes.sonata.w,
+            screenInfo.echoes.sonata.h,
+            monitor=screenInfo.monitor,
+        )
+        sonataHash = hash(image.tobytes())
+
+        if sonataHash in _cache:
+            return _cache[sonataHash]
+
+        ocrText = imageToString(image, '', bannedChars=' ').lower()
         for name in sonataName:
-            if name in sonata:
+            if name in ocrText:
                 _cache[sonataHash] = name
-                sonata = name
-                break
-    
-    controller.moveMouse(screenInfo.echoes.mouseMovement.x, screenInfo.echoes.mouseMovement.y, .2)
-    controller.mouseScroll(screenInfo.scroll.sonata.y, .3)
-    return sonata
+                return name
+
+        raise ValueError(
+            f"Unable to identify echo sonata from OCR result: {ocrText!r}"
+        )
+    finally:
+        controller.moveMouse(
+            screenInfo.echoes.mouseMovement.x,
+            screenInfo.echoes.mouseMovement.y,
+            .2,
+        )
+        controller.mouseScroll(screenInfo.scroll.sonata.y, .3)
 
 def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, echoes: list, image: np.ndarray, _cache: dict[str, list]) -> tuple[dict[str, int], list[dict[str, dict[str, int]]]]:
 
@@ -173,7 +192,13 @@ def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, 
         info = [imageToString(echoCard, '', bannedChars=' +').lower().split('\n')]
         _cache[echoHash] = info
     name = info[0][0]
-    
+    result = getMatches(name, echoesID, 1, 0.9)
+    if not result:
+        raise ValueError(
+            f"Unable to identify echo from OCR result: {name!r}"
+        )
+    name = result[0]
+
     if name in echoesID:
         if len(info) > 1:
             rarity = info[1]
@@ -185,8 +210,9 @@ def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, 
 
         if rarity >= cfg.get(cfg.echoMinRarity):
             if len(info[0]) <= 2:
-                logger.debug("Echo level OCR was incomplete for %s", name)
-                return True
+                raise ValueError(
+                    f"Echo level OCR was incomplete for {name!r}: {info[0]!r}"
+                )
             levelText = info[0][2]
             
             try:
