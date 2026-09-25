@@ -43,12 +43,23 @@ class ItemCard(CardWidget):
 		self.quantityLineEdit.setAlignment(Qt.AlignCenter)
 
 	def setupImage(self, image_path):
-		"""Load and display the item's image."""
+		"""Load the item icon without making it a hard UI dependency."""
 		pixmap = QPixmap(image_path)
-		scaled_pixmap = pixmap.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-		self.imageLabel.setPixmap(scaled_pixmap)
 		self.imageLabel.setFixedSize(64, 64)
 		self.imageLabel.setAlignment(Qt.AlignCenter)
+
+		if pixmap.isNull():
+			self.imageLabel.setText("—")
+			self.imageLabel.setToolTip("Item icon is not cached locally.")
+			return
+
+		scaled_pixmap = pixmap.scaled(
+			64,
+			64,
+			Qt.KeepAspectRatio,
+			Qt.SmoothTransformation,
+		)
+		self.imageLabel.setPixmap(scaled_pixmap)
 
 	def setupLayout(self):
 		"""Arrange widgets within the layout."""
@@ -156,7 +167,7 @@ class InventoryInterface(ScrollArea):
 				if isinstance(widget, ItemCard):
 					item_name = widget.getItemName()
 					quantity = widget.getQuantity()
-					item_id = itemsID.get(item_name, {}).get('id', None)
+					item_id = self._getItemIDByName(item_name)
 					if item_id is not None:
 						inventory_data[item_id] = quantity
 			
