@@ -7,8 +7,7 @@ executables = [
         "main.py",
         base="gui",
         target_name="WuWa Inventory Kamera",
-        icon="assets/icon.ico",
-        uac_admin=True
+        icon="assets/icon.ico"
     )
 ]
 
