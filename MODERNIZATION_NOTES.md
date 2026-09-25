@@ -59,3 +59,25 @@ Do not claim 3.6 compatibility based only on data regeneration. Current-game ROI
 - Replaced the runtime implementation of the existing Qt `DataUpdater` adapter with the new Global provider/cache/generator pipeline while keeping its signals stable for `loadingUI.py`.
 - Added the known Global language list to configuration so Korean is selectable before a first successful data download.
 - Removed the now-unused Babel dependency and explicitly declared pywin32, which is imported directly by the input/clipboard code.
+
+
+## Real Global 3.6 data validation
+
+A Windows GitHub Actions smoke run validated the modernized pipeline against the actual Global 3.6 Korean source at revision `353f2eaed119bc9f680eab92807d20ac75a79b40`.
+
+Generated mapping counts:
+
+- characters: 54
+- weapons: 122
+- items: 1776
+- echoes: 220
+- achievements: 1195
+
+The source manifest reported Game Version 3.6.0 and Resource Version 3.6.6. A second run using `--offline` returned `regenerated: false`, confirming that validated source and generated mappings can be reused without re-downloading or re-parsing the large textmap.
+
+Real data exposed two classes of ambiguity that fixture-only tests had missed:
+
+- protagonist/main-role variants share localized names, so IDs listed by `BinData/main_role_change/mainroleconfig.json` are excluded from the ordinary character-name map and remain handled by the scanner's Rover-specific path;
+- unrelated internal items can share the same localized visible string, including placeholder/error text. OCR-visible mappings now remove ambiguous names instead of choosing an arbitrary ID.
+
+Weapon and Echo final-page boundaries were also corrected to stop at `global_index >= total_count`, which handles exact multiples of 24 correctly.
