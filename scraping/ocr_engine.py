@@ -162,6 +162,33 @@ class OCREngine:
             profile=profile.name,
         )
 
+    def recognize_candidates(
+        self,
+        images: list[Any] | tuple[Any, ...],
+        profile: OCRProfile,
+        *,
+        accept_confidence: float = 0.85,
+    ) -> OCRResult:
+        """Try preprocessing candidates until one is confidently usable.
+
+        The first non-empty result at or above accept_confidence is returned
+        immediately. Otherwise the highest-confidence non-empty result wins.
+        """
+
+        if not images:
+            raise ValueError("At least one OCR image candidate is required.")
+        if not 0.0 <= accept_confidence <= 1.0:
+            raise ValueError("accept_confidence must be between 0.0 and 1.0")
+
+        best = OCRResult.empty(profile.name)
+        for image in images:
+            result = self.recognize(image, profile)
+            if result.text and result.confidence > best.confidence:
+                best = result
+            if result.text and result.confidence >= accept_confidence:
+                return result
+        return best
+
     @staticmethod
     def _extract_entries(raw: Any) -> list[Any]:
         if raw is None:
