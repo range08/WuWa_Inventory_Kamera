@@ -127,17 +127,28 @@ OCR failures are intentionally surfaced rather than converted into guessed level
 
 ## Tutorial
 
-1. **Prepare for Scanning**
-   - Ensure you are in the correct menu before clicking on 'Start Scanning'. This is crucial for accurate data capture.  
-   ![menu](https://telegra.ph/file/12abde4d5ffdfb68c0142.png)
+1. **Prepare the game**
+   - Use 100% Windows display scaling.
+   - Start with an explicit supported ROI resolution (1920x1080 is the live-validation target).
+   - Make the Wuthering Waves client area fill the target monitor.
+   - Open the in-game main/menu state expected by the scanner.
+   - If scanning Resonators, set Rover Name, Gender, and Element correctly in Settings.
 
-2. **Complete the Scanning Process**
-   - Once scanning is complete, open WuWa Inventory Kamera. You should see something similar to the image below:  
-   ![complete](https://telegra.ph/file/a50eba86bcb813e82b919.png)
+2. **Check alignment before automated input**
+   - Use `python -m tools.roi_overlay <screen>` to inspect ROI placement without saving pixels.
+   - Or use `python -m tools.capture_diagnostics <screen>` to create narrow local ROI crops for debugging.
+   - If the scanner reports an unsupported layout, do not bypass the guard by changing coordinates blindly.
 
-3. **(Optional) Review Scanned Data**
-   - You can optionally check the data that has been scanned to ensure everything is captured correctly:  
-   ![review](https://telegra.ph/file/f6c6f2790eb23aa7ce3b5.png)
+3. **Run only the required scanners**
+   - Select Characters, Weapons, Echoes, Development Items, and/or Resources.
+   - Achievements remains mutually exclusive with the other scanner set in the UI.
+   - Press Start Scanning and leave the game in the foreground.
+   - Press Enter or move focus away from the game to request cooperative cancellation.
+
+4. **Review the result**
+   - A clean scan produces the legacy WuWa Tracker files plus `scan_metadata.json`, `validation_report.json`, and `account.json`.
+   - Unknown/low-confidence item, weapon, or Echo entries are not silently guessed. They are saved as narrow local review artifacts under `logs/fail/<scan-time>/`.
+   - When review items remain, `account.json` is intentionally not emitted as a complete account snapshot.
 
 ## Data
 
@@ -163,12 +174,12 @@ Legacy WuWa Tracker-compatible export files keep their existing shapes and filen
 
   ```json
   {
-    "_comment": "resonatorID(1205): string(int), if not the OCR failed and you will see a flatcase name of that",
+    "_comment": "resonatorID: numeric game-data ID serialized as a JSON object key",
     "1205": {
       "level": 90,
       "ascension": 6,
       "weapon": {
-        "_comment": "weaponID: int, if not the OCR failed and you will see a flatcase name of that",
+        "_comment": "weaponID: numeric game-data ID",
         "id": 21020064,
         "level": 80,
         "ascension": 5,
@@ -199,7 +210,7 @@ Legacy WuWa Tracker-compatible export files keep their existing shapes and filen
   ```json
   [
     {
-      "_comment": "weaponID(21030016): string(int), if not the OCR failed and you will see a flatcase name of that",
+      "_comment": "weaponID: numeric game-data ID serialized as a JSON object key",
       "21030016": {
         "level": 50,
         "ascension": 2,
