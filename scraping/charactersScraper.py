@@ -21,6 +21,11 @@ from scraping.matching import (
     RESONATOR_NAME_CUTOFF,
     best_match,
 )
+from scraping.parsing import (
+    ScanParseError,
+    ascension_from_level_cap,
+    parse_level_pair,
+)
 
 logger = logging.getLogger('CharacterScraper')
 
@@ -72,17 +77,17 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
     levelHash = hash(levelImage.tobytes())
 
     if levelHash in _cache:
-        level = _cache[levelHash]
+        levelText = _cache[levelHash]
     else:
-        level = imageToString(levelImage, profile=LEVEL_PROFILE).split('/')
-        _cache[levelHash] = level
+        levelText = imageToString(levelImage, profile=LEVEL_PROFILE)
+        _cache[levelHash] = levelText
 
     try:
-        characterLvl = int(level[0])
-        ascensionLvl = ASCENSION_LEVELS.index(int(level[1]))
-    except (ValueError, IndexError, TypeError) as exc:
+        characterLvl, levelCap = parse_level_pair(levelText)
+        ascensionLvl = ascension_from_level_cap(levelCap, ASCENSION_LEVELS)
+    except ScanParseError as exc:
         raise ValueError(
-            f"Unable to parse resonator level from OCR result: {level!r}"
+            f"Unable to parse resonator level from OCR result: {levelText!r}"
         ) from exc
 
     characters[resonatorID]['level'] = characterLvl
@@ -120,10 +125,10 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     levelHash = hash(levelImage.tobytes())
     
     if levelHash in _cache:
-        level = _cache[levelHash]
+        levelText = _cache[levelHash]
     else:
-        level = imageToString(levelImage, profile=LEVEL_PROFILE).split('/')
-        _cache[levelHash] = level
+        levelText = imageToString(levelImage, profile=LEVEL_PROFILE)
+        _cache[levelHash] = levelText
     
     rankImage = image[screenInfo.characters.weaponRank.y:screenInfo.characters.weaponRank.y + screenInfo.characters.weaponRank.h, screenInfo.characters.weaponRank.x:screenInfo.characters.weaponRank.x + screenInfo.characters.weaponRank.w]
     rankImage = convertToBlackWhite(rankImage)
@@ -136,12 +141,12 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
         _cache[rankHash] = rank
 
     try:
-        weaponLevel = int(level[0])
-        weaponAscension = ASCENSION_LEVELS.index(int(level[1]))
+        weaponLevel, levelCap = parse_level_pair(levelText)
+        weaponAscension = ascension_from_level_cap(levelCap, ASCENSION_LEVELS)
         weaponRank = int(rank)
-    except (ValueError, IndexError, TypeError) as exc:
+    except (ScanParseError, TypeError, ValueError) as exc:
         raise ValueError(
-            f"Unable to parse equipped weapon values: level={level!r}, rank={rank!r}"
+            f"Unable to parse equipped weapon values: level={levelText!r}, rank={rank!r}"
         ) from exc
 
     characters[resonatorID]['weapon']['id'] = weaponID
