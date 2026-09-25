@@ -19,9 +19,9 @@ Design goal: avoid hard-coding the project to 3.6 so that 3.7+ updates are mostl
 - [x] Create a modernization branch, suggested name: `modernize/latest`.
 - [x] Record the upstream commit SHA used as the baseline: `7b5ecf4eca355d3f4a06fb0d65e8419d1f984883`.
 - [ ] Confirm the application starts on a clean Windows 11 environment.
-- [ ] Record the Python version actually supported by the dependency set.
+- [x] Record supported Python versions: Windows dependency/import smoke passes on Python 3.12, 3.13, and 3.14; cx_Freeze build smoke passes on Python 3.14.
 - [ ] Create a virtual environment and install dependencies from scratch.
-- [ ] Document exact start/build commands.
+- [x] Document exact virtualenv, dependency install, data update, run, offline reuse, and cx_Freeze build commands in README.
 - [ ] Run the application with no `data/` directory and record updater behavior.
 - [ ] Verify behavior on 1920x1080 fullscreen first.
 - [ ] Capture baseline screenshots for:
@@ -185,7 +185,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Preserve legacy export filenames.
 - [ ] Add optional aggregate `account.json`.
 - [ ] Add schema metadata without breaking legacy importers.
-- [ ] Use UTF-8 and deterministic formatting.
+- [x] Use deterministic UTF-8 JSON formatting and atomic replacement for scanner exports.
 - [ ] Optionally include validation report.
 - [ ] Never export launcher auth tokens or credentials.
 
@@ -211,7 +211,7 @@ Start with 1920x1080 fullscreen.
 
 - [ ] Determine supported Python versions.
 - [x] Pin all direct runtime/build dependencies in `requirements.txt`.
-- [ ] Audit RapidOCR, PySide/qfluentwidgets, pywin32, and cx_Freeze compatibility.
+- [x] Audit RapidOCR, PySide/qfluentwidgets, pywin32, OpenCV/NumPy, ONNX Runtime, and cx_Freeze compatibility through the Windows 3.12/3.13/3.14 dependency smoke matrix.
 - [x] Generate package/build version from the single `version.py` source.
 - [x] Stop duplicating version strings in cx_Freeze metadata/output paths.
 - [ ] Include generated data in releases or implement safe first-run download.
@@ -224,12 +224,12 @@ Start with 1920x1080 fullscreen.
 - [ ] Add lint/format checks.
 - [x] Add import/compile smoke test.
 - [x] Add data-generation validation, including a manual real Global-data smoke workflow.
-- [ ] Keep build smoke test separate from fast PR checks.
+- [x] Keep the Python 3.14 cx_Freeze build smoke workflow separate from the fast dependency-free PR checks.
 - [ ] Do not auto-publish releases until builds are reproducible.
 
 ## Phase 17 — Documentation
 
-- [ ] Update README for current supported game version.
+- [x] Update README with verified Global 3.6 data-source status, current scanner constraints, and explicit no-compatibility-claim wording pending live UI validation.
 - [ ] State tested modes/resolutions/languages exactly.
 - [ ] Document Korean support status and OCR troubleshooting.
 - [ ] Document calibration/debug mode and patch-update workflow.
