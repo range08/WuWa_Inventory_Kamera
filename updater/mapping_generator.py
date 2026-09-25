@@ -364,9 +364,16 @@ def generate_from_cache(cache_dir: Path | str, output_dir: Path | str) -> dict[s
 
     source_manifest = _source_manifest(cache_dir)
     language = _manifest_language(source_manifest)
-    textmap = load_textmap(
+    localized_textmap = load_textmap(
         cache_dir / "Textmaps" / language / "multi_text" / "MultiText.json"
     )
+    if language == "en":
+        textmap = localized_textmap
+    else:
+        english_textmap = load_textmap(
+            cache_dir / "Textmaps" / "en" / "multi_text" / "MultiText.json"
+        )
+        textmap = {**english_textmap, **localized_textmap}
     main_role_config = _validate_records(
         load_json(cache_dir / "BinData/main_role_change/mainroleconfig.json"),
         "MainRoleConfig",
