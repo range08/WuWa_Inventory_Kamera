@@ -60,6 +60,34 @@ def load_textmap(path: Path) -> dict[str, str]:
     return result
 
 
+def _validate_records(
+    records: Any,
+    label: str,
+    required_fields: dict[str, type],
+) -> list[dict]:
+    if not isinstance(records, list):
+        raise MappingGenerationError(f"{label} must be a list")
+
+    for index, record in enumerate(records):
+        if not isinstance(record, dict):
+            raise MappingGenerationError(
+                f"{label}[{index}] must be an object"
+            )
+
+        for field, expected_type in required_fields.items():
+            if field not in record:
+                raise MappingGenerationError(
+                    f"{label}[{index}] is missing required field {field!r}"
+                )
+            if not isinstance(record[field], expected_type):
+                raise MappingGenerationError(
+                    f"{label}[{index}].{field} must be "
+                    f"{expected_type.__name__}"
+                )
+
+    return records
+
+
 def image_filename(asset_path: str) -> str:
     if not asset_path:
         return ""
@@ -119,6 +147,11 @@ def generate_characters(
     textmap: dict[str, str],
     excluded_role_ids: set[int] | None = None,
 ) -> dict[str, int]:
+    role_info = _validate_records(
+        role_info,
+        "RoleInfo",
+        {"Id": int, "Name": str},
+    )
     result: dict[str, int] = {}
     excluded_role_ids = excluded_role_ids or set()
 
@@ -141,6 +174,18 @@ def generate_characters(
 
 
 def generate_weapons(weapon_info: list[dict], textmap: dict[str, str]) -> dict[str, dict]:
+    weapon_info = _validate_records(
+        weapon_info,
+        "WeaponConf",
+        {"WeaponName": str, "QualityId": int},
+    )
+    for index, weapon in enumerate(weapon_info):
+        weapon_id = weapon.get("ModelId", weapon.get("ItemId"))
+        if not isinstance(weapon_id, int):
+            raise MappingGenerationError(
+                f"WeaponConf[{index}] is missing a valid ModelId/ItemId"
+            )
+
     result: dict[str, dict] = {}
     ambiguous: set[str] = set()
     for weapon in weapon_info:
@@ -166,6 +211,11 @@ def generate_weapons(weapon_info: list[dict], textmap: dict[str, str]) -> dict[s
 
 
 def generate_items(item_info: list[dict], textmap: dict[str, str]) -> dict[str, dict]:
+    item_info = _validate_records(
+        item_info,
+        "ItemInfo",
+        {"Id": int, "Name": str},
+    )
     result: dict[str, dict] = {}
     ambiguous: set[str] = set()
     for item in item_info:
@@ -189,6 +239,11 @@ def generate_items(item_info: list[dict], textmap: dict[str, str]) -> dict[str, 
 
 
 def generate_echoes(monster_info: list[dict], textmap: dict[str, str]) -> dict[str, int]:
+    monster_info = _validate_records(
+        monster_info,
+        "MonsterInfo",
+        {"Id": int, "Name": str},
+    )
     result: dict[str, int] = {}
     ambiguous: set[str] = set()
     for monster in monster_info:
@@ -209,6 +264,11 @@ def generate_echoes(monster_info: list[dict], textmap: dict[str, str]) -> dict[s
 
 
 def generate_achievements(achievement_info: list[dict], textmap: dict[str, str]) -> dict[str, int]:
+    achievement_info = _validate_records(
+        achievement_info,
+        "Achievement",
+        {"Id": int, "Name": str},
+    )
     result: dict[str, int] = {}
     ambiguous: set[str] = set()
     for achievement in achievement_info:
@@ -289,11 +349,11 @@ def generate_from_cache(cache_dir: Path | str, output_dir: Path | str) -> dict[s
     textmap = load_textmap(
         cache_dir / "Textmaps" / language / "multi_text" / "MultiText.json"
     )
-    main_role_config = load_json(
-        cache_dir / "BinData/main_role_change/mainroleconfig.json"
+    main_role_config = _validate_records(
+        load_json(cache_dir / "BinData/main_role_change/mainroleconfig.json"),
+        "MainRoleConfig",
+        {"Id": int},
     )
-    if not isinstance(main_role_config, list):
-        raise MappingGenerationError("Main-role configuration must be a list")
     main_role_ids = {
         entry["Id"]
         for entry in main_role_config
@@ -326,6 +386,12 @@ def generate_from_cache(cache_dir: Path | str, output_dir: Path | str) -> dict[s
         "sonataName.json": generate_sonata_names(textmap),
         "definedText.json": generate_defined_text(textmap),
     }
+
+    for filename, data in outputs.items():
+        if not data:
+            raise MappingGenerationError(
+                f"Generated mapping is empty: {filename}"
+            )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     counts: dict[str, int] = {}
