@@ -20,9 +20,9 @@ Design goal: avoid hard-coding the project to 3.6 so that 3.7+ updates are mostl
 - [x] Record the upstream commit SHA used as the baseline: `7b5ecf4eca355d3f4a06fb0d65e8419d1f984883`.
 - [ ] Confirm the application starts on a clean Windows 11 environment.
 - [x] Record supported Python versions: Windows dependency/import smoke passes on Python 3.12, 3.13, and 3.14; cx_Freeze build smoke passes on Python 3.14.
-- [ ] Create a virtual environment and install dependencies from scratch.
+- [x] Create a clean `.venv` and install all pinned dependencies from scratch; verified by Fresh Install Smoke run 36119576256 on Windows.
 - [x] Document exact virtualenv, dependency install, data update, run, offline reuse, and cx_Freeze build commands in README.
-- [ ] Run the application with no `data/` directory and record updater behavior.
+- [x] Verify the no-`data/` bootstrap path: imports succeed without generated mappings, real Global 3.6 Korean mappings are generated from empty state, loaded into the data store, and the Qt main window constructs offscreen (Fresh Install Smoke 36119576256).
 - [ ] Verify behavior on 1920x1080 fullscreen first.
 - [ ] Capture baseline screenshots for:
   - [ ] Inventory — Weapons
@@ -182,7 +182,7 @@ Start with 1920x1080 fullscreen.
 
 ## Phase 12 — Export schema
 
-- [ ] Preserve legacy export filenames.
+- [x] Preserve legacy inventory/characters/weapons/echoes/achievements export filenames; new metadata is emitted only as an additional file.
 - [ ] Add optional aggregate `account.json`.
 - [x] Add schema/game-data metadata in a separate `scan_metadata.json` file so legacy WuWa Tracker files remain unchanged.
 - [x] Use deterministic UTF-8 JSON formatting and atomic replacement for scanner exports.
@@ -199,23 +199,23 @@ Start with 1920x1080 fullscreen.
 
 ## Phase 14 — Testing
 
-- [ ] Add unit tests for normalization, fuzzy matching, level/quantity/stat parsing, ascension calculation, and data transforms.
+- [x] Add unit coverage for normalization, fuzzy matching, level/quantity/stat parsing, ascension calculation, export validation, data-store reloads, and game-data transforms.
 - [ ] Add screenshot fixture tests for every scanner.
 - [ ] Add Korean and English regression coverage.
 - [x] Add legacy inventory export validation tests covering metadata keys, numeric IDs, invalid roots, and invalid quantities.
 - [x] Add malformed/partial OCR tests.
 - [x] Add offline updater/cache-reuse tests.
-- [ ] Ensure tests do not require the game installed.
+- [x] Ensure dependency-free/unit, dependency smoke, build smoke, and fresh-install smoke tests run without Wuthering Waves installed.
 
 ## Phase 15 — Dependency/build modernization
 
-- [ ] Determine supported Python versions.
+- [x] Determine supported Python versions: dependency/import smoke passes on Windows Python 3.12, 3.13, and 3.14; build smoke is verified on 3.14.
 - [x] Pin all direct runtime/build dependencies in `requirements.txt`.
 - [x] Audit RapidOCR, PySide/qfluentwidgets, pywin32, OpenCV/NumPy, ONNX Runtime, and cx_Freeze compatibility through the Windows 3.12/3.13/3.14 dependency smoke matrix.
 - [x] Generate package/build version from the single `version.py` source.
 - [x] Stop duplicating version strings in cx_Freeze metadata/output paths.
-- [ ] Include generated data in releases or implement safe first-run download.
-- [ ] Add checksums for downloaded/generated assets.
+- [x] Implement safe first-run game-data download/generation with hash validation, atomic writes, retry UI, and validated-cache fallback.
+- [x] Add SHA-256/size metadata and reuse validation for downloaded source data, generated mappings, and optional UI assets.
 
 ## Phase 16 — CI
 
@@ -230,10 +230,10 @@ Start with 1920x1080 fullscreen.
 ## Phase 17 — Documentation
 
 - [x] Update README with verified Global 3.6 data-source status, current scanner constraints, and explicit no-compatibility-claim wording pending live UI validation.
-- [ ] State tested modes/resolutions/languages exactly.
+- [x] State current tested/accepted modes, explicit ROI resolutions, and Korean data-generation vs live-OCR validation status in README.
 - [ ] Document Korean support status and OCR troubleshooting.
 - [x] Document the no-click ROI diagnostic workflow and the data-provider patch-update commands.
-- [ ] Preserve upstream attribution/GPL obligations.
+- [x] Preserve GPL-3.0 licensing and upstream/Inventory Kamera attribution in the maintained fork.
 - [ ] Replace dead tutorial resources where licensing permits.
 - [ ] Add `CONTRIBUTING.md`.
 
@@ -250,7 +250,7 @@ Do not publish a compatibility claim until:
 - [ ] No secrets appear in logs/export.
 - [ ] OCR failures are surfaced instead of silently guessed.
 - [ ] GPL-3.0 and attribution are preserved.
-- [ ] README lists exact tested game/resource versions.
+- [x] README lists the verified data-source versions: Global 3.6.0 / Resource 3.6.6, while keeping live scanner compatibility claims gated on real UI validation.
 
 ## After 3.6
 
