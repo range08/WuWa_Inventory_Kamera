@@ -5,6 +5,7 @@ from pathlib import Path
 from logging.handlers import TimedRotatingFileHandler
 from app import start
 from properties.config import basePATH
+from properties.logging_utils import RedactingFormatter
 from version import __version__
 
 def run_smoke_test() -> int:
@@ -54,7 +55,7 @@ def configure_logging():
 	Path('logs').mkdir(parents=True, exist_ok=True)
 
 	# Create the formatter
-	formatter = logging.Formatter(
+	formatter = RedactingFormatter(
 		fmt='%(asctime)s|%(levelname)s|%(name)s|%(message)s'
 	)
 
