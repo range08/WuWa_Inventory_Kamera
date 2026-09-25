@@ -65,6 +65,16 @@ PERCENTAGE_PROFILE = OCRProfile(
     divisor="",
     allowed_chars=string.digits + ".%",
 )
+STAT_NAME_PROFILE = OCRProfile(
+    name="stat-name",
+    divisor="",
+    banned_chars=" .",
+)
+STAT_VALUE_PROFILE = OCRProfile(
+    name="stat-value",
+    divisor=" ",
+    allowed_chars=string.digits + ".%",
+)
 KOREAN_TEXT_PROFILE = OCRProfile(
     name="korean-text",
 )
