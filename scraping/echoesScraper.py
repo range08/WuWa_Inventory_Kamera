@@ -21,6 +21,7 @@ from scraping.ocr_engine import (
 )
 from scraping.matching import ECHO_NAME_CUTOFF, best_match
 from scraping.parsing import ScanParseError, parse_stat_value
+from scraping.retry import retry_call
 
 logger = logging.getLogger('EchoScraper')
 
@@ -66,17 +67,30 @@ def getRarity(image: np.ndarray):
     return None
 
 def getEchoPages(screenInfo: ScreenInfo) -> int:
-    image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor)[screenInfo.echoes.page.y:screenInfo.echoes.page.y + screenInfo.echoes.page.h, screenInfo.echoes.page.x:screenInfo.echoes.page.x + screenInfo.echoes.page.w]
-    echoCountText = imageToString(
-        image, profile=LEVEL_PROFILE
-    ).split('/')[0]
+    def read_count() -> int:
+        image = screenshot(
+            width=screenInfo.width,
+            height=screenInfo.height,
+            monitor=screenInfo.monitor,
+        )[
+            screenInfo.echoes.page.y:
+            screenInfo.echoes.page.y + screenInfo.echoes.page.h,
+            screenInfo.echoes.page.x:
+            screenInfo.echoes.page.x + screenInfo.echoes.page.w,
+        ]
+        echoCountText = imageToString(
+            image,
+            profile=LEVEL_PROFILE,
+        ).split('/')[0]
 
-    try:
-        echoCount = int(echoCountText)
-    except ValueError as exc:
-        raise ValueError(
-            f"Unable to parse echo inventory count: {echoCountText!r}"
-        ) from exc
+        try:
+            return int(echoCountText)
+        except ValueError as exc:
+            raise ValueError(
+                f"Unable to parse echo inventory count: {echoCountText!r}"
+            ) from exc
+
+    echoCount = retry_call(read_count, attempts=3, delay_seconds=0.2)
     return echoCount, int(np.ceil(echoCount / 24))
 
 def processEcho(name: str, level: int, tuneLv: int, sonata: str, rarity: int, stats: dict) -> dict[str, dict[int, int, dict]]:
