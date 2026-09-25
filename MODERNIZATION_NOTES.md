@@ -179,3 +179,46 @@ The same workflow then ran the updater in explicit offline mode and reported `re
 - The client area must exactly fill the target monitor because current screenshots/clicks are monitor-relative.
 - Resolutions without an explicit ROI profile are rejected rather than dynamically scaled for live automation.
 - Existing dynamic scaling code remains available internally, but scanner startup no longer relies on it for unverified layouts.
+
+
+## Fresh-install and packaged-runtime verification
+
+- Fresh Install Smoke run `36119576256` succeeded on a clean Windows runner with no tracked `data/` directory.
+- The workflow created a new Python 3.14 virtual environment, installed the pinned dependencies from scratch, verified imports before game-data generation, generated real Global 3.6 Korean mappings, loaded them into the explicit data store, constructed the main Qt window offscreen, and compiled the repository.
+- Fresh Install Smoke is manual-only after verification to avoid repeatedly downloading the large real game-data inputs.
+- The Python 3.14 cx_Freeze Build Smoke now launches the generated `WuWa Inventory Kamera.exe --smoke-test` and requires a zero exit code; run `36121553447` completed successfully.
+- Dependency Smoke now constructs the real main Qt window offscreen on Python 3.12, 3.13, and 3.14 in addition to importing runtime modules.
+
+## Generated data-store and export contract
+
+- Generated mapping files are no longer read into scanner globals at module-import time.
+- `scraping/data_store.py` owns stable live containers; all generated files and nested item/weapon/text/ID record shapes are validated before any live container is mutated.
+- Added typed accessors for items, weapons, characters, Echoes, achievements, and item lookup by ID/display name.
+- Scanner JSON writes are deterministic UTF-8 and atomic.
+- Existing WuWa Tracker-compatible files retain their original filenames and data shapes.
+- `scan_metadata.json` records schema/scanner version, scan time, game/resource version, language, upstream source/ref, and exact revision.
+- `validation_report.json` records selected scanners, per-section counts, and manual-review state.
+- `account.json` is emitted only when no manual-review item is pending at scan completion.
+- The common export writer rejects credential-like keys such as OAuth codes, access/refresh tokens, passwords, cookies, credentials, and client secrets at any nesting depth.
+
+## OCR review and preprocessing
+
+- Added confidence-gated OCR candidate selection: a confident primary OCR result is returned immediately; low-confidence/empty results retry thresholded and inverted preprocessing candidates.
+- Failed item recognition stores only the item-description review crop plus a JSON sidecar with OCR text/confidence, failure reason, image fingerprint, parsed quantity if available, and explicit privacy flags.
+- Resolving or skipping a failed item removes both the crop and sidecar.
+- Failed item quantities support an explicit Unknown state instead of inventing a value.
+
+## Cooperative scanner cancellation
+
+- The stop monitor no longer terminates the scanner child immediately.
+- Enter/focus loss sets a shared cancellation event; long scanner loops check it and raise a dedicated `ScanCancelled` signal.
+- The child exits through its normal `finally` cleanup so it can send ESC and restore the game UI.
+- The parent waits up to four seconds for cooperative exit and only then uses hard process termination as a bounded fallback.
+- Once scanning is complete, cancellation monitoring stops before the short atomic export-finalization phase to avoid a late stop key producing a partial export state.
+
+## Rover variant correctness
+
+- Removed the fixed Rover ID `1502` assumption.
+- Added explicit Rover Gender and Rover Element settings while keeping Female/Spectro as the legacy-compatible default.
+- Current Global 3.6 main-role variant IDs are mapped for Spectro, Havoc, Aero, and Electro for both genders.
+- Character scanning resolves the configured Rover variant rather than guessing from the user-defined Rover display name.
