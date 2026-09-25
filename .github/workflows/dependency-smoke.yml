@@ -62,6 +62,15 @@ jobs:
           from qfluentwidgets import MSFluentWindow
           from rapidocr import RapidOCR
           from scraping.ocr_engine import OCREngine
+          from scraping import utils as scraping_utils
+          from scraping.scraperExectuter import startScraper
+          from updater.databaseUpdater import DataUpdater
+          from ui.mainUI import WuWaInventoryKamera
+
+          assert scraping_utils.WindowsInputController is not None
+          assert callable(startScraper)
+          assert DataUpdater is not None
+          assert WuWaInventoryKamera is not None
 
           engine = RapidOCR()
           assert callable(engine)
