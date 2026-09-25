@@ -15,7 +15,12 @@ from scraping.utils import (
     sonataName,
     weaponsID,
 )
-from updater.mapping_generator import MappingGenerationError, generate_from_cache, load_json
+from updater.mapping_generator import (
+    MappingGenerationError,
+    generate_from_cache,
+    generated_mappings_current,
+    load_json,
+)
 from updater.providers import ArikatsuDataProvider
 from updater.source_cache import SourceCache, SourceCacheError
 
@@ -42,8 +47,16 @@ class DataUpdater(QObject):
             cache = SourceCache(self.data_dir / "source")
             manifest_path = cache.sync(provider, self.lang)
 
-            self.updateProgress.emit(85, "Generating scanner mappings")
-            counts = generate_from_cache(manifest_path.parent, self.data_dir)
+            self.updateProgress.emit(85, "Preparing scanner mappings")
+            counts = generated_mappings_current(
+                manifest_path.parent,
+                self.data_dir,
+            )
+            if counts is None:
+                counts = generate_from_cache(manifest_path.parent, self.data_dir)
+            else:
+                logger.info("Reusing generated scanner mappings for current source revision")
+
             self._reload_generated_mappings()
 
             manifest = cache.validate(manifest_path)
