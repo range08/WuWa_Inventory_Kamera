@@ -6,7 +6,10 @@ import argparse
 import json
 from pathlib import Path
 
-from updater.mapping_generator import generate_from_cache
+from updater.mapping_generator import (
+    generate_from_cache,
+    generated_mappings_current,
+)
 from updater.providers import ArikatsuDataProvider
 from updater.source_cache import SourceCache
 
@@ -34,6 +37,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Use the newest validated local cache for the selected ref/language without network access.",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenerate scanner mappings even when the generated manifest is current.",
+    )
     return parser
 
 
@@ -46,7 +54,18 @@ def main(argv: list[str] | None = None) -> int:
         manifest_path = cache.latest_valid(provider, args.language)
     else:
         manifest_path = cache.sync(provider, args.language)
-    counts = generate_from_cache(manifest_path.parent, args.output_dir)
+    counts = None
+    regenerated = False
+    if not args.force:
+        counts = generated_mappings_current(
+            manifest_path.parent,
+            args.output_dir,
+        )
+
+    if counts is None:
+        counts = generate_from_cache(manifest_path.parent, args.output_dir)
+        regenerated = True
+
     manifest = cache.validate(manifest_path)
 
     summary = {
@@ -56,6 +75,7 @@ def main(argv: list[str] | None = None) -> int:
         "resource_version": manifest["source"]["resource_version"],
         "language": manifest["language"],
         "generated": counts,
+        "regenerated": regenerated,
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
