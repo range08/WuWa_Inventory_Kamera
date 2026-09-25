@@ -5,7 +5,10 @@ from scraping.ocr_engine import (
     NAME_PROFILE,
     OCREngine,
     OCRError,
+    OCRConfidenceError,
     OCRProfile,
+    OCRResult,
+    require_confidence,
     STAT_NAME_PROFILE,
     STAT_VALUE_PROFILE,
 )
@@ -25,6 +28,53 @@ def token(x, y, text, confidence):
 
 
 class OCREngineTests(unittest.TestCase):
+    def test_confidence_guard_accepts_threshold_boundary(self):
+        result = OCRResult(
+            text="Changli",
+            confidence=0.75,
+            tokens=(),
+            profile="name",
+        )
+        self.assertIs(
+            require_confidence(
+                result,
+                field="resonator-name",
+                min_confidence=0.75,
+            ),
+            result,
+        )
+
+    def test_confidence_guard_rejects_low_or_empty_results(self):
+        with self.assertRaises(OCRConfidenceError):
+            require_confidence(
+                OCRResult(
+                    text="Changli",
+                    confidence=0.74,
+                    tokens=(),
+                    profile="name",
+                ),
+                field="resonator-name",
+                min_confidence=0.75,
+            )
+        with self.assertRaises(OCRConfidenceError):
+            require_confidence(
+                OCRResult.empty("name"),
+                field="resonator-name",
+            )
+
+    def test_confidence_guard_validates_configuration(self):
+        with self.assertRaises(ValueError):
+            require_confidence(
+                OCRResult.empty("name"),
+                field="",
+            )
+        with self.assertRaises(ValueError):
+            require_confidence(
+                OCRResult.empty("name"),
+                field="name",
+                min_confidence=1.1,
+            )
+
     def test_preserves_bbox_confidence_and_groups_rows(self):
         def backend(_image):
             return (
