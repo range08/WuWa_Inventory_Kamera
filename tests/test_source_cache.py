@@ -129,9 +129,11 @@ class SourceCacheTests(unittest.TestCase):
             cache = SourceCache(tmp, FakeFetcher(payloads))
             manifest_path = cache.sync(provider, "ko")
 
+            new_revision = "b" * 40
+
             def metadata_failure(url):
                 if url == provider.revision_url():
-                    return payloads[url]
+                    return json.dumps({"sha": new_revision}).encode()
                 raise SourceCacheError("metadata unavailable")
 
             fallback_cache = SourceCache(tmp, metadata_failure)
@@ -144,8 +146,12 @@ class SourceCacheTests(unittest.TestCase):
             cache = SourceCache(tmp, FakeFetcher(payloads))
             manifest_path = cache.sync(provider, "ko")
 
+            new_revision = "b" * 40
+
             def file_failure(url):
-                if url in (provider.revision_url(), provider.metadata_url()):
+                if url == provider.revision_url():
+                    return json.dumps({"sha": new_revision}).encode()
+                if url == provider.metadata_url():
                     return payloads[url]
                 raise SourceCacheError("source file unavailable")
 
@@ -159,9 +165,11 @@ class SourceCacheTests(unittest.TestCase):
             cache = SourceCache(tmp, FakeFetcher(payloads))
             cache.sync(provider, "ko")
 
+            new_revision = "b" * 40
+
             def metadata_failure(url):
                 if url == provider.revision_url():
-                    return payloads[url]
+                    return json.dumps({"sha": new_revision}).encode()
                 raise SourceCacheError("metadata unavailable")
 
             strict_cache = SourceCache(tmp, metadata_failure)
