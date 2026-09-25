@@ -3,7 +3,6 @@ import cv2
 import hashlib
 import numpy as np
 from pathlib import Path
-from difflib import get_close_matches as getMatches
 
 from scraping.utils import itemsID
 from scraping.utils import (
@@ -12,6 +11,7 @@ from scraping.utils import (
 )
 from game.screenInfo import ScreenInfo
 from properties.config import cfg, basePATH
+from scraping.matching import ITEM_NAME_CUTOFF, best_match
 
 # Constants
 ROWS, COLS = 4, 6
@@ -31,8 +31,9 @@ def processItem(path: Path, image: np.ndarray, screenInfo: ScreenInfo, _cache: d
         info = imageToString(infoImage, bannedChars=' ').lower().split('\n')
         _cache[infoFingerprint] = info
     name = info[0]
-    result = getMatches(name, itemsID, 1, 0.9)
-    if result: name = result[0]
+    result = best_match(name, itemsID, cutoff=ITEM_NAME_CUTOFF)
+    if result:
+        name = result
     
     quantityValid = True
     try:
