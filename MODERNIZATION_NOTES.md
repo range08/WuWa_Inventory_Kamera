@@ -39,3 +39,12 @@ Do not claim 3.6 compatibility based only on data regeneration. Current-game ROI
 - Added `docs/GAME_DATA.md` documenting the no-vendoring boundary for upstream game data.
 - The Arikatsu data repository exposes current Global 3.6 data but no explicit LICENSE file was found during this audit; raw BinData/Textmaps therefore remain local update/build inputs and are not to be redistributed by this fork.
 - Added a minimal Windows GitHub Actions workflow running `compileall` and dependency-free unit tests.
+
+
+## Additional Phase 1 fixes
+
+- Fixed an echo rarity cache bug: cached rarity values were stored as integers but later read as if they were indexable lists.
+- Item quantity OCR failures are no longer committed to inventory as a confirmed quantity of 1; they are routed through the existing manual-review path.
+- Removed the remaining bare `except:` statements from scanner, UI fallback, and legacy updater paths.
+- Audited Python function signatures for mutable `{}`/`[]` defaults; no remaining cases were found after the `loadFile()` fix.
+- Modernization CI passed on head `f9bdde96d67cf7737c51400fdae86258ac4eb3d2`.
