@@ -33,14 +33,18 @@ def processItem(path: Path, image: np.ndarray, screenInfo: ScreenInfo, _cache: d
     result = getMatches(name, itemsID, 1, 0.9)
     if result: name = result[0]
     
-    try: value = re.sub(r'[^0-9]', '', info[2])
-    except: value = 1
-
-    try: value = int(value)
-    except ValueError: value = 1
+    quantityValid = True
+    try:
+        valueText = re.sub(r'[^0-9]', '', info[2])
+        if not valueText:
+            raise ValueError("Quantity OCR returned no digits")
+        value = int(valueText)
+    except (IndexError, TypeError, ValueError):
+        value = 1
+        quantityValid = False
 
     itemID = itemsID.get(name, {'id': None})['id']
-    if itemID is not None:
+    if itemID is not None and quantityValid:
         inventory[itemID] = value
     else:
         path.mkdir(parents=True, exist_ok=True)
