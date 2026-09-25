@@ -219,7 +219,11 @@ def processGridItem(
         if valueHash in _cache:
             valueText = _cache[valueHash]
         else:
-            valueText = imageToString(valueImage, profile=INTEGER_PROFILE)
+            valueResult = require_confidence(
+                imageToResult(valueImage, profile=INTEGER_PROFILE),
+                field="weapon-tab-item-quantity",
+            )
+            valueText = valueResult.text
             _cache[valueHash] = valueText
         
         itemID, value = processItem(name, valueText)
@@ -237,7 +241,11 @@ def processGridItem(
         if levelHash in _cache:
             levelText = _cache[levelHash]
         else:
-            levelText = imageToString(levelImage, profile=LEVEL_PROFILE)
+            levelResult = require_confidence(
+                imageToResult(levelImage, profile=LEVEL_PROFILE),
+                field="weapon-level",
+            )
+            levelText = levelResult.text
             _cache[levelHash] = levelText
 
         try:
@@ -265,7 +273,11 @@ def processGridItem(
             if rankHash in _cache:
                 rankText = _cache[rankHash]
             else:
-                rankText = imageToString(rankImage, profile=INTEGER_PROFILE)
+                rankResult = require_confidence(
+                    imageToResult(rankImage, profile=INTEGER_PROFILE),
+                    field="weapon-rank",
+                )
+                rankText = rankResult.text
                 _cache[rankHash] = rankText
             weapons.append(processWeapon(name, levelText, rankText))
         return True
