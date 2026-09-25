@@ -7,6 +7,16 @@ import win32clipboard
 from pathlib import Path
 
 from properties.config import cfg, INVENTORY
+from scraping.data_store import (
+    achievementsID,
+    charactersID,
+    definedText,
+    echoStats,
+    echoesID,
+    itemsID,
+    sonataName,
+    weaponsID,
+)
 from scraping.exporter import write_json_atomic
 from scraping.ocr_engine import (
     OCREngine,
@@ -31,14 +41,6 @@ def loadFile(filePATH: str, default = None) -> dict | list:
     except (FileNotFoundError, json.JSONDecodeError):
         return default
 
-itemsID: dict = loadFile('./data/items.json')
-charactersID: dict = loadFile('./data/characters.json')
-weaponsID: dict = loadFile('./data/weapons.json')
-echoesID: dict = loadFile('./data/echoes.json')
-achievementsID: dict = loadFile('./data/achievements.json')
-echoStats: dict = loadFile('./data/echoStats.json')
-definedText: dict = loadFile('./data/definedText.json')
-sonataName: list = loadFile('./data/sonataName.json', [])
 
 def savingScraped(scannedData: dict | None = None, START_DATE: str = ''):
     if scannedData is None:
