@@ -1,4 +1,3 @@
-import string
 import numpy as np
 from difflib import get_close_matches as getMatches
 
@@ -18,7 +17,7 @@ WEAPON_ASCENSION_LEVELS = [20, 40, 50, 60, 70, 80, 90]
 def getWeaponPages(screenInfo: ScreenInfo) -> int:
     image = convertToBlackWhite(screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor)[screenInfo.weapons.page.y:screenInfo.weapons.page.y + screenInfo.weapons.page.h, screenInfo.weapons.page.x:screenInfo.weapons.page.x + screenInfo.weapons.page.w])
     weaponCountText = imageToString(
-        image, '', allowedChars=string.digits + '/'
+        image, profile=LEVEL_PROFILE
     ).split('/')[0]
     try:
         weaponCount = int(weaponCountText)
