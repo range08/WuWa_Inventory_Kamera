@@ -52,6 +52,7 @@ jobs:
           @'
           import cv2
           import mss
+          import numpy
           import onnxruntime
           import pymonctl
           import pywinctl
@@ -68,6 +69,7 @@ jobs:
           assert adapter is not None
 
           print("runtime imports: ok")
+          print("numpy:", numpy.__version__)
           print("onnxruntime:", onnxruntime.__version__)
           print("opencv:", cv2.__version__)
           '@ | python -
