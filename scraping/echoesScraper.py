@@ -15,6 +15,11 @@ from scraping.utils import (
 )
 from game.screenInfo import ScreenInfo
 from properties.config import cfg
+from scraping.ocr_engine import (
+    LEVEL_PROFILE,
+    STAT_NAME_PROFILE,
+    STAT_VALUE_PROFILE,
+)
 
 logger = logging.getLogger('EchoScraper')
 
@@ -109,14 +114,14 @@ def processStats(image: np.ndarray, screenInfo: ScreenInfo, _cache: dict) -> dic
     if nameHash in _cache:
         names = _cache[nameHash]
     else:
-        names = imageToString(nameImage, allowedChars=string.ascii_letters).lower().split('\n')
+        names = imageToString(nameImage, profile=STAT_NAME_PROFILE).lower().split('\n')
         names = matchStats(names)
         _cache[nameHash] = names
 
     if valueHash in _cache:
         values = _cache[valueHash]
     else:
-        values = imageToString(valueImage, allowedChars=string.digits + '.%').split()
+        values = imageToString(valueImage, profile=STAT_VALUE_PROFILE).split()
         _cache[valueHash] = values
     tuneLv = max(0, len(values) - 2)
 
