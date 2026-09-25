@@ -1,5 +1,7 @@
 import cx_Freeze
 
+from version import __version__
+
 executables = [
     cx_Freeze.Executable(
         "main.py",
@@ -12,7 +14,7 @@ executables = [
 
 cx_Freeze.setup(
     name="WuWa Inventory Kamera",
-    version="1.7.1",
+    version=__version__,
     options={
         "build_exe": {
             "packages": ["rapidocr", "onnxruntime"],
@@ -24,7 +26,7 @@ cx_Freeze.setup(
                 ("assets", "assets")
             ],
             "optimize": 2,
-            "build_exe": "dist/v1.7.1",
+            "build_exe": f"dist/v{__version__}",
             "silent_level": 0,
             "include_msvcr": True,
         }
