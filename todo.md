@@ -133,8 +133,8 @@ Start with 1920x1080 fullscreen.
 - [ ] Verify expected screen before each action.
 - [ ] Verify expected transition after each action.
 - [ ] Add bounded retries and safe cancellation.
-- [ ] Remove Administrator requirement unless technically necessary.
-- [ ] Keep all interaction at ordinary user-input level.
+- [x] Remove the forced Administrator requirement; scanner input remains ordinary user-level Win32 mouse/keyboard automation. Real game interaction still requires manual validation.
+- [x] Keep all interaction at ordinary user-input level; no process memory, injection, packet interception, or anti-cheat bypass path is used.
 - [ ] Add a dry-run/screenshot mode.
 
 ## Phase 8 — Character scanner
