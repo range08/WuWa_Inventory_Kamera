@@ -83,8 +83,8 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 
 - [x] Move generated mapping file reads out of import-time module globals; scanners now hold stable references to an explicit in-memory data store reloaded only after full validation.
 - [ ] Add typed data-access functions.
-- [ ] Add `schema_version` to generated/exported formats.
-- [ ] Add `game_version`, `resource_version`, `language`, and `scan_time` metadata.
+- [x] Add schema versions to generated mapping manifests and to the separate non-breaking `scan_metadata.json` export.
+- [x] Add game/resource version, source revision, language, scanner version, and scan time to `scan_metadata.json` without changing legacy export files.
 - [ ] Maintain an export compatibility layer for existing WuWa Tracker users.
 - [ ] Avoid a repository-wide rewrite in one commit.
 
@@ -184,7 +184,7 @@ Start with 1920x1080 fullscreen.
 
 - [ ] Preserve legacy export filenames.
 - [ ] Add optional aggregate `account.json`.
-- [ ] Add schema metadata without breaking legacy importers.
+- [x] Add schema/game-data metadata in a separate `scan_metadata.json` file so legacy WuWa Tracker files remain unchanged.
 - [x] Use deterministic UTF-8 JSON formatting and atomic replacement for scanner exports.
 - [ ] Optionally include validation report.
 - [ ] Never export launcher auth tokens or credentials.
