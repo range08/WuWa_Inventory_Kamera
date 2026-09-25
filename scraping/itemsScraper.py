@@ -5,7 +5,7 @@ from pathlib import Path
 
 from scraping.utils import itemsID
 from scraping.utils import (
-    screenshot, imageToString, convertToBlackWhite,
+    screenshot, imageToResult, convertToBlackWhite,
     WindowsInputController
 )
 from game.screenInfo import ScreenInfo
@@ -13,6 +13,7 @@ from properties.config import cfg, basePATH
 from scraping.cancellation import check_cancelled
 from scraping.matching import ITEM_NAME_CUTOFF, best_match
 from scraping.parsing import ScanParseError, parse_quantity
+from scraping.review_queue import write_review_metadata
 
 # Constants
 ROWS, COLS = 4, 6
@@ -27,11 +28,13 @@ def processItem(path: Path, image: np.ndarray, screenInfo: ScreenInfo, _cache: d
     infoFingerprint = hashlib.sha256(infoImage.tobytes()).hexdigest()
 
     if infoFingerprint in _cache:
-        info = _cache[infoFingerprint]
+        infoResult = _cache[infoFingerprint]
     else:
-        info = imageToString(infoImage, bannedChars=' ').lower().split('\n')
-        _cache[infoFingerprint] = info
-    name = info[0]
+        infoResult = imageToResult(infoImage, bannedChars=' ')
+        _cache[infoFingerprint] = infoResult
+
+    info = infoResult.text.lower().split('\n')
+    name = info[0] if info else ""
     result = best_match(name, itemsID, cutoff=ITEM_NAME_CUTOFF)
     if result:
         name = result
@@ -48,15 +51,43 @@ def processItem(path: Path, image: np.ndarray, screenInfo: ScreenInfo, _cache: d
         inventory[itemID] = value
     else:
         path.mkdir(parents=True, exist_ok=True)
-        descImage = image[screenInfo.items.description.y:screenInfo.items.description.y + screenInfo.items.description.h, screenInfo.items.description.x:screenInfo.items.description.x + screenInfo.items.description.w]
+        descImage = image[
+            screenInfo.items.description.y:
+            screenInfo.items.description.y + screenInfo.items.description.h,
+            screenInfo.items.description.x:
+            screenInfo.items.description.x + screenInfo.items.description.w,
+        ]
 
-        imagePath = path / f'item-{infoFingerprint[:16]}.png'
+        stem = f'item-{infoFingerprint[:16]}'
+        imagePath = path / f'{stem}.png'
+        metadataPath = path / f'{stem}.json'
+
         if not imagePath.exists():
-            cv2.imwrite(imagePath, descImage)
+            if not cv2.imwrite(str(imagePath), descImage):
+                raise OSError(
+                    f"Unable to save failed OCR crop: {imagePath}"
+                )
+
+        reasons = []
+        if itemID is None:
+            reasons.append("unknown_name")
+        if not quantityValid:
+            reasons.append("invalid_quantity")
+
+        write_review_metadata(
+            metadataPath,
+            scanner="items",
+            reason="+".join(reasons) or "unrecognized",
+            fingerprint=infoFingerprint,
+            crop_file=imagePath.name,
+            ocr_result=infoResult,
+            owned=value,
+        )
 
         failed.append({
             'image': imagePath,
-            'owned': value
+            'metadata': metadataPath,
+            'owned': value,
         })
 
     return inventory, failed, name, infoFingerprint
