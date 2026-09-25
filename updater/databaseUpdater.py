@@ -31,6 +31,7 @@ class DataUpdater(QObject):
     """Qt adapter around the versioned Global-client data updater."""
 
     updateProgress = Signal(int, str)
+    updateFailed = Signal(str)
     updateFinished = Signal()
 
     def __init__(self):
@@ -71,6 +72,7 @@ class DataUpdater(QObject):
             self.updateProgress.emit(100, "Game data ready")
         except (SourceCacheError, MappingGenerationError, ValueError, OSError) as exc:
             logger.error("Game-data update failed: %s", exc, exc_info=True)
+            self.updateFailed.emit(str(exc))
         finally:
             self.updateFinished.emit()
 
