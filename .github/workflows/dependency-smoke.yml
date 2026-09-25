@@ -1,14 +1,6 @@
 name: Dependency Smoke
 
 on:
-  pull_request:
-    branches:
-      - master
-    paths:
-      - "requirements.txt"
-      - "setup.py"
-      - "scraping/ocr_engine.py"
-      - ".github/workflows/dependency-smoke.yml"
   workflow_dispatch:
 
 permissions:
