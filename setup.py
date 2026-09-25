@@ -15,7 +15,7 @@ cx_Freeze.setup(
     version="1.7.1",
     options={
         "build_exe": {
-            "packages": ["rapidocr_onnxruntime"],
+            "packages": ["rapidocr", "onnxruntime"],
             "excludes": [
                 "tkinter", "unittest", "email", "html",
                 "xml", "distutils", "setuptools", "pip", "wheel"
