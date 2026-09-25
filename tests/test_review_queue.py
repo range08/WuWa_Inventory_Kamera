@@ -4,10 +4,52 @@ import unittest
 from pathlib import Path
 
 from scraping.ocr_engine import OCRResult, OCRToken
-from scraping.review_queue import write_review_metadata
+from scraping.review_queue import (
+    DEFAULT_REVIEW_CONFIDENCE,
+    review_reasons,
+    write_review_metadata,
+)
 
 
 class ReviewQueueTests(unittest.TestCase):
+    def test_review_policy_accepts_confident_complete_item(self):
+        self.assertEqual(
+            review_reasons(
+                recognized=True,
+                quantity_valid=True,
+                confidence=DEFAULT_REVIEW_CONFIDENCE,
+            ),
+            (),
+        )
+
+    def test_review_policy_routes_low_confidence_even_when_parseable(self):
+        self.assertEqual(
+            review_reasons(
+                recognized=True,
+                quantity_valid=True,
+                confidence=DEFAULT_REVIEW_CONFIDENCE - 0.01,
+            ),
+            ("low_confidence",),
+        )
+
+    def test_review_policy_combines_failure_reasons(self):
+        self.assertEqual(
+            review_reasons(
+                recognized=False,
+                quantity_valid=False,
+                confidence=0.20,
+            ),
+            ("unknown_name", "invalid_quantity", "low_confidence"),
+        )
+
+    def test_review_policy_validates_confidence(self):
+        with self.assertRaises(ValueError):
+            review_reasons(
+                recognized=True,
+                quantity_valid=True,
+                confidence=1.1,
+            )
+
     def test_writes_ocr_metadata_without_full_screen_or_uid(self):
         result = OCRResult(
             text="unknown item\nowned 123",
