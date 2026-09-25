@@ -13,7 +13,10 @@ from properties.config import cfg, basePATH
 from scraping.cancellation import check_cancelled
 from scraping.matching import ITEM_NAME_CUTOFF, best_match
 from scraping.parsing import ScanParseError, parse_quantity
-from scraping.review_queue import write_review_metadata
+from scraping.review_queue import (
+    review_reasons,
+    write_review_metadata,
+)
 
 # Constants
 ROWS, COLS = 4, 6
@@ -47,7 +50,13 @@ def processItem(path: Path, image: np.ndarray, screenInfo: ScreenInfo, _cache: d
         quantityValid = False
 
     itemID = itemsID.get(name, {'id': None})['id']
-    if itemID is not None and quantityValid:
+    reasons = review_reasons(
+        recognized=itemID is not None,
+        quantity_valid=quantityValid,
+        confidence=infoResult.confidence,
+    )
+
+    if not reasons:
         inventory[itemID] = value
     else:
         path.mkdir(parents=True, exist_ok=True)
@@ -68,16 +77,10 @@ def processItem(path: Path, image: np.ndarray, screenInfo: ScreenInfo, _cache: d
                     f"Unable to save failed OCR crop: {imagePath}"
                 )
 
-        reasons = []
-        if itemID is None:
-            reasons.append("unknown_name")
-        if not quantityValid:
-            reasons.append("invalid_quantity")
-
         write_review_metadata(
             metadataPath,
             scanner="items",
-            reason="+".join(reasons) or "unrecognized",
+            reason="+".join(reasons),
             fingerprint=infoFingerprint,
             crop_file=imagePath.name,
             ocr_result=infoResult,
@@ -88,6 +91,9 @@ def processItem(path: Path, image: np.ndarray, screenInfo: ScreenInfo, _cache: d
             'image': imagePath,
             'metadata': metadataPath,
             'owned': value,
+            'candidate': name if itemID is not None else None,
+            'confidence': infoResult.confidence,
+            'reasons': reasons,
         })
 
     return inventory, failed, name, infoFingerprint
