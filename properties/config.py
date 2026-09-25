@@ -19,11 +19,26 @@ WINDOW_NAME = 'Wuthering Waves'
 INVENTORY = {'date': str(), 'items': dict()}
 FAILED: list[dict] = list()
 maxLength = 12
+DEFAULT_LANGUAGES = {
+	'English': 'en',
+	'Korean': 'ko',
+	'Japanese': 'ja',
+	'German': 'de',
+	'Spanish': 'es',
+	'French': 'fr',
+	'Indonesian': 'id',
+	'Portuguese': 'pt',
+	'Russian': 'ru',
+	'Thai': 'th',
+	'Vietnamese': 'vi',
+	'Simplified Chinese': 'zh-Hans',
+	'Traditional Chinese': 'zh-Hant',
+}
 try:
 	with open(basePATH / 'data' / 'languages.json', 'r', encoding='utf-8') as languageFile:
-		LANGUAGES = json.load(languageFile)
-except (FileNotFoundError, json.JSONDecodeError, OSError):
-	LANGUAGES = {'English': 'en'}
+		LANGUAGES = {**DEFAULT_LANGUAGES, **json.load(languageFile)}
+except (FileNotFoundError, json.JSONDecodeError, OSError, TypeError):
+	LANGUAGES = DEFAULT_LANGUAGES.copy()
 
 def alphabethList() -> list[str]:
 	"""Generate a list of uppercase letters, digits, and punctuation."""
