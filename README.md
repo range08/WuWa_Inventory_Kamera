@@ -115,6 +115,12 @@ The updater records the exact upstream revision, game/resource versions, file ha
 
 ## Data
 
+Legacy WuWa Tracker-compatible export files keep their existing shapes and filenames. This fork additionally writes:
+
+- `scan_metadata.json`: scanner version, scan time, game/resource version, language, upstream revision, and source identity.
+- `validation_report.json`: selected scanners, per-section counts, and whether manual review is still required.
+- `account.json`: a single aggregate of metadata plus inventory/characters/weapons/echoes/achievements. It is created only when the scan has no pending manual-review item, so it is never presented as complete while an OCR failure is unresolved.
+
 <details>
   <summary>inventory.json</summary>
 
