@@ -2,16 +2,31 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 class MappingGenerationError(RuntimeError):
     """Raised when cached source data cannot be transformed safely."""
+
+
+GENERATED_MANIFEST_NAME = "mapping_manifest.json"
+GENERATED_MAPPING_FILES = (
+    "characters.json",
+    "weapons.json",
+    "items.json",
+    "echoes.json",
+    "achievements.json",
+    "echoStats.json",
+    "sonataName.json",
+    "definedText.json",
+)
 
 
 def normalize_name(value: str) -> str:
@@ -215,7 +230,11 @@ def generate_from_cache(cache_dir: Path | str, output_dir: Path | str) -> dict[s
     cache_dir = Path(cache_dir)
     output_dir = Path(output_dir)
 
-    textmap = load_textmap(cache_dir / "Textmaps" / _manifest_language(cache_dir) / "multi_text" / "MultiText.json")
+    source_manifest = _source_manifest(cache_dir)
+    language = _manifest_language(source_manifest)
+    textmap = load_textmap(
+        cache_dir / "Textmaps" / language / "multi_text" / "MultiText.json"
+    )
     main_role_config = load_json(
         cache_dir / "BinData/main_role_change/mainroleconfig.json"
     )
@@ -233,10 +252,22 @@ def generate_from_cache(cache_dir: Path | str, output_dir: Path | str) -> dict[s
             textmap,
             excluded_role_ids=main_role_ids,
         ),
-        "weapons.json": generate_weapons(load_json(cache_dir / "BinData/weapon/weaponconf.json"), textmap),
-        "items.json": generate_items(load_json(cache_dir / "BinData/item/iteminfo.json"), textmap),
-        "echoes.json": generate_echoes(load_json(cache_dir / "BinData/monster_Info/monsterinfo.json"), textmap),
-        "achievements.json": generate_achievements(load_json(cache_dir / "BinData/achievement/achievement.json"), textmap),
+        "weapons.json": generate_weapons(
+            load_json(cache_dir / "BinData/weapon/weaponconf.json"),
+            textmap,
+        ),
+        "items.json": generate_items(
+            load_json(cache_dir / "BinData/item/iteminfo.json"),
+            textmap,
+        ),
+        "echoes.json": generate_echoes(
+            load_json(cache_dir / "BinData/monster_Info/monsterinfo.json"),
+            textmap,
+        ),
+        "achievements.json": generate_achievements(
+            load_json(cache_dir / "BinData/achievement/achievement.json"),
+            textmap,
+        ),
         "echoStats.json": generate_echo_stats(textmap),
         "sonataName.json": generate_sonata_names(textmap),
         "definedText.json": generate_defined_text(textmap),
@@ -244,12 +275,93 @@ def generate_from_cache(cache_dir: Path | str, output_dir: Path | str) -> dict[s
 
     output_dir.mkdir(parents=True, exist_ok=True)
     counts: dict[str, int] = {}
+    generated_files: dict[str, dict[str, int | str]] = {}
+
     for filename, data in outputs.items():
         payload = (
-            json.dumps(data, ensure_ascii=False, indent=2, sort_keys=isinstance(data, dict)) + "\n"
+            json.dumps(
+                data,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=isinstance(data, dict),
+            )
+            + "\n"
         ).encode("utf-8")
         _atomic_write(output_dir / filename, payload)
         counts[filename] = len(data)
+        generated_files[filename] = {
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "size": len(payload),
+            "count": len(data),
+        }
+
+    mapping_manifest = {
+        "schema_version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "source": _source_identity(source_manifest),
+        "files": dict(sorted(generated_files.items())),
+    }
+    _atomic_write(
+        output_dir / GENERATED_MANIFEST_NAME,
+        (
+            json.dumps(
+                mapping_manifest,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode("utf-8"),
+    )
+
+    return counts
+
+
+def generated_mappings_current(
+    cache_dir: Path | str,
+    output_dir: Path | str,
+) -> dict[str, int] | None:
+    """Return generated mapping counts when outputs match the source manifest."""
+
+    cache_dir = Path(cache_dir)
+    output_dir = Path(output_dir)
+
+    try:
+        source_manifest = _source_manifest(cache_dir)
+        generated = load_json(output_dir / GENERATED_MANIFEST_NAME)
+    except MappingGenerationError:
+        return None
+
+    if not isinstance(generated, dict) or generated.get("schema_version") != 1:
+        return None
+    if generated.get("source") != _source_identity(source_manifest):
+        return None
+
+    files = generated.get("files")
+    if not isinstance(files, dict):
+        return None
+
+    counts: dict[str, int] = {}
+    for filename in GENERATED_MAPPING_FILES:
+        expected = files.get(filename)
+        if not isinstance(expected, dict):
+            return None
+
+        path = output_dir / filename
+        try:
+            payload = path.read_bytes()
+        except OSError:
+            return None
+
+        if hashlib.sha256(payload).hexdigest() != expected.get("sha256"):
+            return None
+        if len(payload) != expected.get("size"):
+            return None
+
+        count = expected.get("count")
+        if not isinstance(count, int) or count < 0:
+            return None
+        counts[filename] = count
 
     return counts
 
@@ -271,9 +383,54 @@ def _atomic_write(path: Path, payload: bytes) -> None:
         raise
 
 
-def _manifest_language(cache_dir: Path) -> str:
+def _source_manifest(cache_dir: Path) -> dict:
     manifest = load_json(cache_dir / "manifest.json")
-    language = manifest.get("language") if isinstance(manifest, dict) else None
-    if not isinstance(language, str) or not language or "/" in language or "\\" in language or ".." in language:
+    if not isinstance(manifest, dict):
+        raise MappingGenerationError("Source manifest must be an object")
+    return manifest
+
+
+def _manifest_language(manifest: dict) -> str:
+    language = manifest.get("language")
+    if (
+        not isinstance(language, str)
+        or not language
+        or "/" in language
+        or "\\" in language
+        or ".." in language
+    ):
         raise MappingGenerationError("Manifest contains an invalid language")
     return language
+
+
+def _source_identity(manifest: dict) -> dict[str, str]:
+    source = manifest.get("source")
+    if not isinstance(source, dict):
+        raise MappingGenerationError("Source manifest is missing source metadata")
+
+    fields = (
+        "repository",
+        "ref",
+        "game_version",
+        "resource_version",
+        "changelist",
+    )
+    identity: dict[str, str] = {}
+    for field in fields:
+        value = source.get(field)
+        if not isinstance(value, str) or not value:
+            raise MappingGenerationError(
+                "Source manifest contains invalid metadata: {}".format(field)
+            )
+        identity[field] = value
+
+    revision = manifest.get("revision")
+    language = manifest.get("language")
+    if not isinstance(revision, str) or not revision:
+        raise MappingGenerationError("Source manifest contains invalid revision")
+    if not isinstance(language, str) or not language:
+        raise MappingGenerationError("Source manifest contains invalid language")
+
+    identity["revision"] = revision
+    identity["language"] = language
+    return identity
