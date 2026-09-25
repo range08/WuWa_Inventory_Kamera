@@ -1,4 +1,4 @@
-from scraping.utils.common import (
+from scraping.data_store import (
     itemsID, charactersID, weaponsID,
     echoesID, achievementsID, echoStats,
     definedText, sonataName
