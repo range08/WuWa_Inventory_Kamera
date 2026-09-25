@@ -45,6 +45,36 @@ class OCRError(RuntimeError):
     """Raised when the OCR backend returns an unusable result."""
 
 
+class OCRConfidenceError(OCRError):
+    """Raised when a critical OCR field is too uncertain to commit."""
+
+
+DEFAULT_MIN_CONFIDENCE = 0.75
+
+
+def require_confidence(
+    result: OCRResult,
+    *,
+    field: str,
+    min_confidence: float = DEFAULT_MIN_CONFIDENCE,
+) -> OCRResult:
+    """Require a non-empty OCR result at or above a confidence threshold."""
+    if not field:
+        raise ValueError("field must be non-empty")
+    if not 0.0 <= min_confidence <= 1.0:
+        raise ValueError("min_confidence must be between 0.0 and 1.0")
+    if not result.text:
+        raise OCRConfidenceError(
+            f"{field} OCR returned no text (confidence={result.confidence:.3f})"
+        )
+    if result.confidence < min_confidence:
+        raise OCRConfidenceError(
+            f"{field} OCR confidence {result.confidence:.3f} is below "
+            f"{min_confidence:.3f}: {result.text!r}"
+        )
+    return result
+
+
 NAME_PROFILE = OCRProfile(
     name="name",
     divisor="",
