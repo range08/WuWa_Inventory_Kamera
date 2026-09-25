@@ -1,5 +1,4 @@
 import numpy as np
-from difflib import get_close_matches as getMatches
 
 from scraping.utils import weaponsID, itemsID
 from scraping.utils import (
@@ -9,6 +8,11 @@ from scraping.utils import (
 from game.screenInfo import ScreenInfo
 from properties.config import cfg
 from scraping.ocr_engine import INTEGER_PROFILE, LEVEL_PROFILE, NAME_PROFILE
+from scraping.matching import (
+    ITEM_NAME_CUTOFF,
+    WEAPON_INVENTORY_NAME_CUTOFF,
+    best_match,
+)
 
 # Constants
 ROWS, COLS = 4, 6
@@ -58,16 +62,24 @@ def processGridItem(inventory: dict, weapons: list, image: np.ndarray, screenInf
         name = _cache[nameHash]
     else:
         name = imageToString(nameImage, profile=NAME_PROFILE).lower()
-        result = getMatches(name, weaponsID, 1, 0.9)
-        if not result:
-            result = getMatches(name, itemsID, 1, 0.9)
-        if not result:
+        result = best_match(
+            name,
+            weaponsID,
+            cutoff=WEAPON_INVENTORY_NAME_CUTOFF,
+        )
+        if result is None:
+            result = best_match(
+                name,
+                itemsID,
+                cutoff=ITEM_NAME_CUTOFF,
+            )
+        if result is None:
             raise ValueError(
                 f"Unable to identify weapon inventory entry from OCR result: {name!r}"
             )
 
-        _cache[nameHash] = result[0]
-        name = result[0]
+        _cache[nameHash] = result
+        name = result
     
     if name in itemsID:
         valueImage = image[screenInfo.weapons.value.y:screenInfo.weapons.value.y + screenInfo.weapons.value.h, screenInfo.weapons.value.x:screenInfo.weapons.value.x + screenInfo.weapons.value.w]
