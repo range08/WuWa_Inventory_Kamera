@@ -18,6 +18,7 @@ from scraping.charactersScraper import resonatorScraper
 from scraping.weaponsScraper import weaponScraper
 from scraping.echoesScraper import echoScraper
 from scraping.achievementsScraper import achievementScraper
+from scraping.result_protocol import ScraperMessageError, parse_scraper_message
 
 from game.menu import MainMenuController
 from game.screenInfo import ScreenInfo
@@ -28,44 +29,26 @@ logger = logging.getLogger('ScraperManager')
 
 
 def _applyScraperMessage(message):
-    """Apply one child-process message to the in-memory scan state.
-
-    Returns
-    -------
-    tuple[str | None, bool]
-        Error message, if any, and whether the child reported normal completion.
-    """
+    """Apply one validated child-process message to in-memory scan state."""
     global INVENTORY, FAILED
 
-    if not isinstance(message, dict):
-        return ("Scanner returned a malformed result message.", False)
-
-    messageType = message.get('type')
+    try:
+        messageType, payload = parse_scraper_message(message)
+    except ScraperMessageError as exc:
+        return (str(exc), False)
 
     if messageType == 'inventory':
-        inventory = message.get('inventory', {})
-        if not isinstance(inventory, dict):
-            return ("Scanner returned malformed inventory data.", False)
-        INVENTORY['items'].update(inventory)
+        INVENTORY['items'].update(payload)
         return (None, False)
 
     if messageType == 'failed':
-        failed = message.get('failed', [])
-        if not isinstance(failed, list):
-            return ("Scanner returned malformed recognition-failure data.", False)
-        FAILED.extend(failed)
+        FAILED.extend(payload)
         return (None, False)
 
     if messageType == 'error':
-        error = message.get('error')
-        if not isinstance(error, str) or not error:
-            error = "Scanner subprocess failed without an error message."
-        return (error, False)
+        return (payload, False)
 
-    if messageType == 'complete':
-        return (None, True)
-
-    return ("Scanner returned an unknown result message.", False)
+    return (None, True)
 
 
 def managerStart(scraperEnabled: list):
