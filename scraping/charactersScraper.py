@@ -2,7 +2,6 @@ import time
 import string
 import logging
 import numpy as np
-from difflib import get_close_matches as getMatches
 from collections import defaultdict
 
 from scraping.utils import charactersID, weaponsID, definedText
@@ -16,6 +15,11 @@ from scraping.ocr_engine import (
     INTEGER_PROFILE,
     LEVEL_PROFILE,
     NAME_PROFILE,
+)
+from scraping.matching import (
+    EQUIPPED_WEAPON_NAME_CUTOFF,
+    RESONATOR_NAME_CUTOFF,
+    best_match,
 )
 
 logger = logging.getLogger('CharacterScraper')
@@ -40,9 +44,13 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
     else:
         resonatorName = imageToString(resonatorNameImage, profile=NAME_PROFILE).lower()
     
-        result = getMatches(resonatorName, charactersID, 1, 0.9)
+        result = best_match(
+            resonatorName,
+            charactersID,
+            cutoff=RESONATOR_NAME_CUTOFF,
+        )
         if result:
-            resonatorName = result[0]
+            resonatorName = result
         
         roverName = cfg.get(cfg.roverName).replace(' ', '').lower()
         if resonatorName == roverName:
@@ -91,9 +99,13 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     else:
         weaponName = imageToString(weaponNameImage, profile=NAME_PROFILE).lower()
     
-        result = getMatches(weaponName, weaponsID, 1, 0.9)
+        result = best_match(
+            weaponName,
+            weaponsID,
+            cutoff=EQUIPPED_WEAPON_NAME_CUTOFF,
+        )
         if result:
-            weaponName = result[0]
+            weaponName = result
         
         if weaponName not in weaponsID:
             raise ValueError(
