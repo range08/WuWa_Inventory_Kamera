@@ -16,6 +16,7 @@ from qfluentwidgets import (
 
 from ui.custom_widgets.widget import MultiplePushSettingCard
 from properties.config import cfg, basePATH
+from scraping.export_schema import ExportValidationError, normalize_inventory_payload
 from scraping.exporter import write_json_atomic
 from scraping.utils.common import itemsID
 
@@ -151,12 +152,22 @@ class InventoryInterface(ScrollArea):
 
 		if file_path:
 			self.inventoryFileCard.setContent(file_path)
-			with open(file_path, 'r', encoding='utf-8') as file:
-				try:
-					data = json.load(file)
-					self.__populateGrid(data)
-				except json.JSONDecodeError as e:
-					logger.error(f"Error loading JSON file: {e}", exc_info=True)
+			try:
+				with open(file_path, 'r', encoding='utf-8') as file:
+					data = normalize_inventory_payload(json.load(file))
+				self.__populateGrid(data)
+			except (
+				OSError,
+				UnicodeDecodeError,
+				json.JSONDecodeError,
+				ExportValidationError,
+			) as exc:
+				logger.error(
+					"Unable to load inventory file %s: %s",
+					file_path,
+					exc,
+					exc_info=True,
+				)
 
 	def __saveInventoryFile(self):
 		"""Save current inventory data to a JSON file."""
@@ -183,10 +194,24 @@ class InventoryInterface(ScrollArea):
 			if widget:
 				widget.setParent(None)
 
-		for index, item_id in enumerate(inventory_file):
-			image, name = self._getItemInfoByID(item_id)
-			card = ItemCard(str(basePATH / 'assets' / image), name, inventory_file[item_id])
-			self.gridLayout.addWidget(card, index // columns, index % columns)
+		display_index = 0
+		for item_id, quantity in inventory_file.items():
+			item_info = self._getItemInfoByID(item_id)
+			if item_info is None:
+				logger.warning(
+					"Skipping unknown item ID in loaded inventory: %s",
+					item_id,
+				)
+				continue
+
+			image, name = item_info
+			card = ItemCard(str(basePATH / 'assets' / image), name, quantity)
+			self.gridLayout.addWidget(
+				card,
+				display_index // columns,
+				display_index % columns,
+			)
+			display_index += 1
 
 	def _getItemIDByName(self, item_name: str):
 		"""Resolve a localized display name back to its item ID."""
@@ -202,7 +227,12 @@ class InventoryInterface(ScrollArea):
 
 	def _getItemInfoByID(self, item_id: int):
 		"""Retrieve item image and name by its ID."""
-		for _, info in itemsID.items():
-			if info['id'] == int(item_id):
-				return info['image'], info['name']
-		return 'None', 'None'
+		try:
+			numeric_id = int(item_id)
+		except (TypeError, ValueError):
+			return None
+
+		for info in itemsID.values():
+			if info.get('id') == numeric_id:
+				return info.get('image', ''), info.get('name', str(numeric_id))
+		return None
