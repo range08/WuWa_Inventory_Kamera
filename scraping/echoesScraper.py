@@ -17,6 +17,7 @@ from scraping.utils import (
 from game.screenInfo import ScreenInfo
 from properties.config import basePATH, cfg
 from scraping.cancellation import check_cancelled
+from scraping.filters import include_echo
 from scraping.ocr_engine import (
     LEVEL_PROFILE,
     STAT_NAME_PROFILE,
@@ -293,25 +294,29 @@ def processGridEcho(
                 raise ValueError(f"Unable to determine echo rarity for {name!r}")
             _cache[infoKey].append(rarity)
 
-        if rarity >= cfg.get(cfg.echoMinRarity):
-            if len(info[0]) <= 2:
-                raise ValueError(
-                    f"Echo level OCR was incomplete for {name!r}: {info[0]!r}"
-                )
-            levelText = info[0][2]
-            
-            try:
-                level = int(levelText)
-            except ValueError as exc:
-                raise ValueError(
-                    f"Unable to parse echo level from OCR result: {levelText!r}"
-                ) from exc
-            level = min(25, level)
+        if len(info[0]) <= 2:
+            raise ValueError(
+                f"Echo level OCR was incomplete for {name!r}: {info[0]!r}"
+            )
+        levelText = info[0][2]
 
-            if level >= cfg.get(cfg.echoMinLevel):
-                tuneLv, stats = processStats(image, screenInfo, _cache)
-                sonata = getSonata(controller, screenInfo, _cache)
-                echoes.append(processEcho(name, level, tuneLv, sonata, rarity, stats))
+        try:
+            level = int(levelText)
+        except ValueError as exc:
+            raise ValueError(
+                f"Unable to parse echo level from OCR result: {levelText!r}"
+            ) from exc
+        level = min(25, level)
+
+        if include_echo(
+            rarity=rarity,
+            level=level,
+            min_rarity=cfg.get(cfg.echoMinRarity),
+            min_level=cfg.get(cfg.echoMinLevel),
+        ):
+            tuneLv, stats = processStats(image, screenInfo, _cache)
+            sonata = getSonata(controller, screenInfo, _cache)
+            echoes.append(processEcho(name, level, tuneLv, sonata, rarity, stats))
 
         # Rarity/level filters decide whether this echo is exported; they must
         # not terminate scanning because later slots may still qualify.
