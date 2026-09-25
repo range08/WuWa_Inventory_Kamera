@@ -1,6 +1,13 @@
 name: Game Data Smoke
 
 on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "updater/**"
+      - "tools/update_game_data.py"
+      - ".github/workflows/game-data-smoke.yml"
   workflow_dispatch:
     inputs:
       data_ref:
@@ -25,8 +32,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 20
     env:
-      WUWA_DATA_REF: ${{ inputs.data_ref }}
-      WUWA_LANGUAGE: ${{ inputs.language }}
+      WUWA_DATA_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.data_ref || '3.6' }}
+      WUWA_LANGUAGE: ${{ github.event_name == 'workflow_dispatch' && inputs.language || 'ko' }}
 
     steps:
       - name: Check out repository
