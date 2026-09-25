@@ -269,11 +269,26 @@ class MappingGeneratorTests(unittest.TestCase):
             )
 
             counts = generate_from_cache(cache_dir, output_dir)
+            generated_manifest = json.loads(
+                (output_dir / "mapping_manifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(generated_manifest["schema_version"], 2)
+            self.assertEqual(generated_manifest["generator_version"], 2)
             self.assertEqual(
                 generated_mappings_current(cache_dir, output_dir),
                 counts,
             )
 
+            generated_manifest["generator_version"] = 1
+            (output_dir / "mapping_manifest.json").write_text(
+                json.dumps(generated_manifest),
+                encoding="utf-8",
+            )
+            self.assertIsNone(
+                generated_mappings_current(cache_dir, output_dir)
+            )
+
+            generate_from_cache(cache_dir, output_dir)
             characters = output_dir / "characters.json"
             characters.write_text("{}", encoding="utf-8")
             self.assertIsNone(
