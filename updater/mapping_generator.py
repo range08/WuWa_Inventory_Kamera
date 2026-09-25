@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -215,13 +217,30 @@ def generate_from_cache(cache_dir: Path | str, output_dir: Path | str) -> dict[s
     output_dir.mkdir(parents=True, exist_ok=True)
     counts: dict[str, int] = {}
     for filename, data in outputs.items():
-        (output_dir / filename).write_text(
-            json.dumps(data, ensure_ascii=False, indent=2, sort_keys=isinstance(data, dict)) + "\n",
-            encoding="utf-8",
-        )
+        payload = (
+            json.dumps(data, ensure_ascii=False, indent=2, sort_keys=isinstance(data, dict)) + "\n"
+        ).encode("utf-8")
+        _atomic_write(output_dir / filename, payload)
         counts[filename] = len(data)
 
     return counts
+
+
+def _atomic_write(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as temp:
+            temp.write(payload)
+            temp.flush()
+            os.fsync(temp.fileno())
+        os.replace(temp_name, path)
+    except Exception:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def _manifest_language(cache_dir: Path) -> str:
