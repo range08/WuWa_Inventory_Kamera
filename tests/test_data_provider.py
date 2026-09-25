@@ -26,6 +26,7 @@ class ArikatsuDataProviderTests(unittest.TestCase):
         self.assertIn("BinData/item/iteminfo.json", paths)
         self.assertIn("BinData/weapon/weaponconf.json", paths)
         self.assertIn("BinData/role/roleinfo.json", paths)
+        self.assertIn("BinData/main_role_change/mainroleconfig.json", paths)
         self.assertIn("BinData/monster_Info/monsterinfo.json", paths)
         self.assertIn("Textmaps/ko/multi_text/MultiText.json", paths)
 
