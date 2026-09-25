@@ -91,6 +91,51 @@ class MappingGeneratorTests(unittest.TestCase):
                 {"A": "Same Name", "B": "SameName"},
             )
 
+    def test_ambiguous_non_character_names_are_excluded(self):
+        items = generate_items(
+            [
+                {"Id": 1, "Name": "A", "Icon": ""},
+                {"Id": 2, "Name": "B", "Icon": ""},
+                {"Id": 3, "Name": "C", "Icon": ""},
+            ],
+            {
+                "A": "Duplicate",
+                "B": "Duplicate",
+                "C": "Unique",
+            },
+        )
+        echoes = generate_echoes(
+            [
+                {"Id": 340000001, "Name": "EA"},
+                {"Id": 340000002, "Name": "EB"},
+                {"Id": 340000003, "Name": "EC"},
+            ],
+            {
+                "EA": "Same Echo",
+                "EB": "Same Echo",
+                "EC": "Unique Echo",
+            },
+        )
+        achievements = generate_achievements(
+            [
+                {"Id": 1001, "Name": "AA"},
+                {"Id": 1002, "Name": "AB"},
+                {"Id": 1003, "Name": "AC"},
+            ],
+            {
+                "AA": "Same Achievement",
+                "AB": "Same Achievement",
+                "AC": "Unique Achievement",
+            },
+        )
+
+        self.assertNotIn("duplicate", items)
+        self.assertEqual(items["unique"]["id"], 3)
+        self.assertNotIn("sameecho", echoes)
+        self.assertEqual(echoes["uniqueecho"], 340000003)
+        self.assertNotIn("Same Achievement", achievements)
+        self.assertEqual(achievements["Unique Achievement"], 1003)
+
     def test_character_mapping_excludes_derived_and_main_role_variants(self):
         characters = generate_characters(
             [
