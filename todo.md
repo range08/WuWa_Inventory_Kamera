@@ -71,7 +71,7 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 - [x] Make generated mapping JSON deterministic.
 - [x] Generate/update characters, weapons, items, echoes, echo stats, sonata labels, scanner UI text, and achievements mappings where available; validated against real Global 3.6 Korean data.
 - [x] Support Korean (`ko`) explicitly in source/provider/config selection.
-- [ ] Keep English as a fallback when localized text is missing.
+- [x] Keep English as a fallback when localized text is missing; Korean real-data smoke completed successfully with the dual-textmap pipeline.
 - [x] Validate duplicate normalized names.
 - [x] Validate missing IDs and malformed records.
 - [x] Add `python -m tools.update_game_data` for source sync, validation, and mapping generation.
@@ -210,10 +210,10 @@ Start with 1920x1080 fullscreen.
 ## Phase 15 — Dependency/build modernization
 
 - [ ] Determine supported Python versions.
-- [ ] Pin dependencies or add a lock file.
+- [x] Pin all direct runtime/build dependencies in `requirements.txt`.
 - [ ] Audit RapidOCR, PySide/qfluentwidgets, pywin32, and cx_Freeze compatibility.
-- [ ] Generate version from one source of truth.
-- [ ] Stop duplicating version strings.
+- [x] Generate package/build version from the single `version.py` source.
+- [x] Stop duplicating version strings in cx_Freeze metadata/output paths.
 - [ ] Include generated data in releases or implement safe first-run download.
 - [ ] Add checksums for downloaded/generated assets.
 
