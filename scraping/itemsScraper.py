@@ -85,6 +85,7 @@ def processItem(path: Path, image: np.ndarray, screenInfo: ScreenInfo, _cache: d
             crop_file=imagePath.name,
             ocr_result=infoResult,
             owned=value,
+            candidate=name if itemID is not None else None,
         )
 
         failed.append({
