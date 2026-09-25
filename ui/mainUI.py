@@ -1,20 +1,13 @@
 import logging
-from pathlib import Path
-
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from qfluentwidgets import FluentIcon as FIF
-from qfluentwidgets import (
-	NavigationItemPosition, MSFluentWindow, InfoBar,
-	InfoBarPosition
-)
+from qfluentwidgets import NavigationItemPosition, MSFluentWindow
 
 from ui.homeUI import HomeInterface
 from ui.settingsUI import SettingInterface
 from ui.inventoryUI import InventoryInterface
-from scraping.utils.common import isUserAdmin
 from properties.config import basePATH
 
 logger = logging.getLogger('WuWaInventoryKamera')
@@ -28,7 +21,6 @@ class WuWaInventoryKamera(MSFluentWindow):
 		self.initInterface()
 		self.initNavigation()
 		self.initWindow()
-		self.warningInfoBar()
 
 	def initInterface(self):
 		"""Initialize the different interfaces (Home, Inventory, Settings)."""
@@ -58,16 +50,3 @@ class WuWaInventoryKamera(MSFluentWindow):
 		desktop = QApplication.primaryScreen().availableGeometry()
 		self.move(desktop.width() // 2 - self.width() // 2, desktop.height() // 2 - self.height() // 2)
 
-	def warningInfoBar(self):
-		"""Display a warning InfoBar if the application is not run as an administrator."""
-		if not isUserAdmin():
-			InfoBar.warning(
-				title='Warning',
-				content="Administrator privileges not granted.\nTo use the scanner, administrator rights must be granted.",
-				orient=Qt.Vertical,
-				isClosable=True,
-				position=InfoBarPosition.TOP,
-				duration=-1,
-				parent=self
-			)
-			logger.warning("Administrator privileges not granted.")
