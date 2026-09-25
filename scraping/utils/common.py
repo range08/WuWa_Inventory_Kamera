@@ -1,4 +1,3 @@
-import re
 import logging
 import mss
 import cv2
@@ -8,11 +7,16 @@ import numpy as np
 import win32clipboard
 from pathlib import Path
 
-from properties.config import (
-    cfg, INVENTORY, ocr
+from properties.config import cfg, INVENTORY
+from scraping.ocr_engine import (
+    OCREngine,
+    OCRError,
+    OCRProfile,
+    OCRResult,
 )
 
 logger = logging.getLogger('OCR')
+ocrEngine = OCREngine()
 
 def loadFile(filePATH: str, default = None) -> dict | list:
     if default is None:
@@ -100,56 +104,43 @@ def convertToBlackWhite(image: np.ndarray):
 
     return sharpened
 
-def imageToString(
-    image: np.ndarray, 
-    divisor: str = ' ', 
-    allowedChars: str = None, 
-    bannedChars: str = None
-) -> str:
+def imageToResult(
+    image: np.ndarray,
+    divisor: str = ' ',
+    allowedChars: str = None,
+    bannedChars: str = None,
+    profile: OCRProfile | None = None,
+) -> OCRResult:
+    if profile is None:
+        profile = OCRProfile(
+            name='legacy',
+            divisor=divisor,
+            allowed_chars=allowedChars,
+            banned_chars=bannedChars,
+        )
+
     try:
-        ocrResults = ocr(image)[0]
-        
-        banned_pattern = re.compile(f"[{re.escape(bannedChars)}]") if bannedChars else None
-        allowed_pattern = re.compile(f"[^{re.escape(allowedChars)}]") if allowedChars else None
-        
-        lines = []
-        for bbox, text, _ in ocrResults:
-            if banned_pattern:
-                text = banned_pattern.sub('', text)
-            
-            if allowed_pattern:
-                text = allowed_pattern.sub('', text)
-                
-            lines.append((bbox, text))
-
-        groupedLines = []
-        currentRow = []
-        lastY = None
-
-        for bbox, text in lines:
-            yMin = min(point[1] for point in bbox)
-            yMax = max(point[1] for point in bbox)
-
-            if lastY is None or (yMin < lastY + 10):
-                currentRow.append(text)
-            else:
-                groupedLines.append(currentRow)
-                currentRow = [text]
-                
-            lastY = yMax
-
-        if currentRow:
-            groupedLines.append(currentRow)
-
-        finalOutput = []
-        for row in groupedLines:
-            finalOutput.append(divisor.join(row))
-        
-        return '\n'.join(finalOutput).strip()
-
-    except Exception:
+        return ocrEngine.recognize(image, profile)
+    except OCRError:
         logger.debug("OCR failed", exc_info=True)
-        return ''
+        return OCRResult.empty(profile.name)
+
+
+def imageToString(
+    image: np.ndarray,
+    divisor: str = ' ',
+    allowedChars: str = None,
+    bannedChars: str = None,
+    profile: OCRProfile | None = None,
+) -> str:
+    return imageToResult(
+        image,
+        divisor=divisor,
+        allowedChars=allowedChars,
+        bannedChars=bannedChars,
+        profile=profile,
+    ).text
+
 
 def isUserAdmin():
     return ctypes.windll.shell32.IsUserAnAdmin()
