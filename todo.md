@@ -58,24 +58,24 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 - [x] Introduce a game-data provider abstraction.
 - [x] Add a provider for a current Global-client data source.
 - [x] Use `Arikatsu/WutheringWaves_Data` as the first supported Global data provider.
-- [ ] Read the upstream version metadata before importing data.
+- [x] Read the upstream version metadata before importing data.
 - [ ] Persist source metadata:
-  - [ ] repository
-  - [ ] branch/tag/commit
-  - [ ] game version
-  - [ ] resource version
-  - [ ] changelist
-  - [ ] generated-at timestamp
-- [ ] Do not compare updates only by file size.
-- [ ] Use content hashes/ETags/commit SHA for update detection.
-- [ ] Make generated data deterministic.
+  - [x] repository
+  - [x] branch/tag/commit
+  - [x] game version
+  - [x] resource version
+  - [x] changelist
+  - [x] generated-at timestamp
+- [x] Do not compare updates only by file size.
+- [x] Use content hashes and resolved commit SHA for update detection/validation.
+- [x] Make generated mapping JSON deterministic.
 - [ ] Generate/update characters, weapons, items, echoes, echo stats, sonata labels, scanner UI text, and achievements mappings where available.
-- [ ] Support Korean (`ko`) explicitly.
+- [x] Support Korean (`ko`) explicitly in source/provider/config selection.
 - [ ] Keep English as a fallback when localized text is missing.
-- [ ] Validate duplicate normalized names.
+- [x] Validate duplicate normalized names.
 - [ ] Validate missing IDs and malformed records.
-- [ ] Add a command such as `python -m tools.update_game_data`.
-- [ ] Allow pinning a known-good data revision.
+- [x] Add `python -m tools.update_game_data` for source sync, validation, and mapping generation.
+- [x] Allow selecting/pinning an upstream branch, tag, or commit with `--ref` / `WUWA_DATA_REF`.
 - [ ] Add an offline mode using the last validated local database.
 - [ ] Fail clearly when the remote schema changes.
 
