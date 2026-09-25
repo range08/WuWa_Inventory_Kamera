@@ -10,7 +10,7 @@ import urllib.error
 import urllib.request
 from dataclasses import asdict
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Callable
 
 from updater.providers import ArikatsuDataProvider
@@ -219,6 +219,20 @@ class SourceCache:
                     "Source manifest contains malformed file metadata"
                 )
 
+            normalized = PurePosixPath(source_path)
+            if (
+                not source_path
+                or normalized.is_absolute()
+                or ".." in normalized.parts
+                or "\\" in source_path
+                or ":" in source_path
+            ):
+                raise SourceCacheError(
+                    "Source manifest contains unsafe file path: {}".format(
+                        source_path
+                    )
+                )
+
             target = base / source_path
             try:
                 payload = target.read_bytes()
@@ -274,6 +288,14 @@ class SourceCache:
             return False
         if revision is not None and manifest.get("revision") != revision:
             return False
+
+        files = manifest.get("files")
+        if not isinstance(files, dict):
+            return False
+        required_paths = set(provider.required_paths(language))
+        if not required_paths.issubset(files):
+            return False
+
         return True
 
     @staticmethod
