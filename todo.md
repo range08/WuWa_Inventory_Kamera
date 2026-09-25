@@ -42,8 +42,8 @@ Design goal: avoid hard-coding the project to 3.6 so that 3.7+ updates are mostl
   - Current code reads `_cache[button]` when `buttonHash` is the cache key.
   - Correct behavior must read `_cache[buttonHash]`.
 - [x] Audit cache reads/writes across the six scanner modules for mismatched keys.
-- [ ] Replace broad `except:` blocks in scanner-critical paths with explicit exceptions and logging.
-- [ ] Audit mutable default arguments such as `loadFile(..., default={})`.
+- [x] Replace bare `except:` blocks across the Python codebase with explicit exception handling/logging.
+- [x] Audit mutable default arguments such as `loadFile(..., default={})`.
 - [ ] Ensure OCR failure cannot silently become a plausible value such as level 1 or quantity 1 without an error marker.
 - [ ] Fix queue/error propagation so a scraper subprocess exception is visible to the UI.
 - [ ] Review item-page termination logic for false duplicate detection.
