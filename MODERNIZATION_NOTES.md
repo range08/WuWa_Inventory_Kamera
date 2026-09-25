@@ -95,3 +95,16 @@ Weapon and Echo final-page boundaries were also corrected to stop at `global_ind
 - Added per-scanner exception context (for example, `weapons scanner failed: ...`) before propagating failures to the UI.
 - Removed several remaining plausible-value OCR fallbacks: invalid character/skill/weapon values, weapon and echo counts, echo stat values/rarity/level, and Shell Credit now fail closed rather than being stored as 0/1/24 defaults.
 - Modernization CI passed after these changes on the latest modernization head.
+
+
+## Structured OCR modernization
+
+- Added a lazy `OCREngine` adapter around RapidOCR so OCR behavior is testable without importing the runtime backend in unit tests.
+- Added structured `OCRResult` / `OCRToken` data carrying recognized text, average confidence, token confidence, bounding boxes, and profile name.
+- Added NFKC Unicode normalization before field filtering.
+- Added named OCR profiles for names, integers, level values, percentages, localized stat names/values, and Korean/general localized text.
+- Preserved the existing `imageToString()` API as a compatibility wrapper while adding `imageToResult()` for confidence-aware callers.
+- Migrated character, weapon, echo-count/stat, and Shell Credit OCR paths to typed profiles.
+- Fixed a Korean-specific echo-stat bug where the old `ascii_letters` filter removed all Hangul before matching localized stat names.
+- Added dependency-free tests for confidence/bbox preservation, Unicode normalization, row grouping, integer filtering, Korean stat names, malformed backend results, empty results, and partial-token filtering.
+- Modernization CI passed on head `7203a2098593f981be724f21201e8e6eb9958600`.
