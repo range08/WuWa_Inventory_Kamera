@@ -59,6 +59,12 @@ class ArikatsuDataProvider:
     def metadata_url(self) -> str:
         return self.raw_url("README.md")
 
+    def revision_url(self) -> str:
+        return (
+            f"https://api.github.com/repos/{self.owner}/{self.repo}/"
+            f"commits/{quote(self.ref, safe='')}"
+        )
+
     def required_paths(self, language: str) -> tuple[str, ...]:
         """Return the minimal raw inputs needed by the mapping generator.
 
