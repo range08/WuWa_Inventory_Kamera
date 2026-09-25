@@ -7,9 +7,18 @@ from scraping.data_store import GeneratedDataStore, GameDataStoreError
 
 
 VALID = {
-    "items.json": {"item": {"id": 1}},
+    "items.json": {
+        "item": {"id": 1, "name": "Item", "image": "item.png"}
+    },
     "characters.json": {"character": 2},
-    "weapons.json": {"weapon": {"id": 3}},
+    "weapons.json": {
+        "weapon": {
+            "id": 3,
+            "name": "Weapon",
+            "image": "weapon.png",
+            "rarity": 5,
+        }
+    },
     "echoes.json": {"echo": 4},
     "achievements.json": {"Achievement": 5},
     "echoStats.json": {"attack": "atk"},
@@ -67,6 +76,44 @@ class GeneratedDataStoreTests(unittest.TestCase):
             (root / "echoes.json").unlink()
 
             with self.assertRaisesRegex(GameDataStoreError, "echoes.json"):
+                GeneratedDataStore().reload(root)
+
+
+    def test_invalid_nested_item_record_fails_before_mutation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(root)
+            store = GeneratedDataStore()
+            store.reload(root)
+            before = dict(store.items)
+
+            write_fixture(
+                root,
+                {"items.json": {"item": {"id": 1, "name": "Item"}}},
+            )
+            with self.assertRaisesRegex(GameDataStoreError, "image"):
+                store.reload(root)
+
+            self.assertEqual(store.items, before)
+
+    def test_invalid_weapon_rarity_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_fixture(
+                root,
+                {
+                    "weapons.json": {
+                        "weapon": {
+                            "id": 3,
+                            "name": "Weapon",
+                            "image": "weapon.png",
+                            "rarity": 6,
+                        }
+                    }
+                },
+            )
+
+            with self.assertRaisesRegex(GameDataStoreError, "rarity"):
                 GeneratedDataStore().reload(root)
 
 
