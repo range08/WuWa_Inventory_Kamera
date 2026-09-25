@@ -12,6 +12,11 @@ from scraping.utils import (
 )
 from game.screenInfo import ScreenInfo
 from properties.config import cfg
+from scraping.ocr_engine import (
+    INTEGER_PROFILE,
+    LEVEL_PROFILE,
+    NAME_PROFILE,
+)
 
 logger = logging.getLogger('CharacterScraper')
 
@@ -33,7 +38,7 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
     if resonatorNameHash in _cache:
         return None, True
     else:
-        resonatorName = imageToString(resonatorNameImage, '', bannedChars=' ').lower()
+        resonatorName = imageToString(resonatorNameImage, profile=NAME_PROFILE).lower()
     
         result = getMatches(resonatorName, charactersID, 1, 0.9)
         if result:
@@ -52,7 +57,7 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
     if levelHash in _cache:
         level = _cache[levelHash]
     else:
-        level = imageToString(levelImage, '', allowedChars=string.digits + '/').split('/')
+        level = imageToString(levelImage, profile=LEVEL_PROFILE).split('/')
         _cache[levelHash] = level
 
     try:
@@ -76,7 +81,7 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     if weaponNameHash in _cache:
         weaponID = _cache[weaponNameHash]
     else:
-        weaponName = imageToString(weaponNameImage, bannedChars=' ').lower()
+        weaponName = imageToString(weaponNameImage, profile=NAME_PROFILE).lower()
     
         result = getMatches(weaponName, weaponsID, 1, 0.9)
         if result:
@@ -92,7 +97,7 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     if levelHash in _cache:
         level = _cache[levelHash]
     else:
-        level = imageToString(levelImage, '', allowedChars=string.digits + '/').split('/')
+        level = imageToString(levelImage, profile=LEVEL_PROFILE).split('/')
         _cache[levelHash] = level
     
     rankImage = image[screenInfo.characters.weaponRank.y:screenInfo.characters.weaponRank.y + screenInfo.characters.weaponRank.h, screenInfo.characters.weaponRank.x:screenInfo.characters.weaponRank.x + screenInfo.characters.weaponRank.w]
@@ -102,7 +107,7 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     if rankHash in _cache:
         rank = _cache[rankHash]
     else:
-        rank = imageToString(rankImage, '', allowedChars=string.digits)
+        rank = imageToString(rankImage, profile=INTEGER_PROFILE)
         _cache[rankHash] = rank
 
     try:
@@ -134,7 +139,7 @@ def scrapeSkills(controller: WindowsInputController, screenInfo: ScreenInfo, cha
         if levelHash in _cache:
             level = _cache[levelHash]
         else:
-            level = imageToString(levelImage, '', allowedChars=string.digits)
+            level = imageToString(levelImage, profile=INTEGER_PROFILE)
             _cache[levelHash] = level
 
         try:
