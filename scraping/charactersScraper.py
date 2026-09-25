@@ -55,11 +55,13 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
         level = imageToString(levelImage, '', allowedChars=string.digits + '/').split('/')
         _cache[levelHash] = level
 
-    try: ascensionLvl = ASCENSION_LEVELS.index(int(level[1]))
-    except (ValueError, IndexError, TypeError): ascensionLvl = 0
-
-    try: characterLvl = int(level[0])
-    except (ValueError, IndexError, TypeError): characterLvl = 1
+    try:
+        characterLvl = int(level[0])
+        ascensionLvl = ASCENSION_LEVELS.index(int(level[1]))
+    except (ValueError, IndexError, TypeError) as exc:
+        raise ValueError(
+            f"Unable to parse resonator level from OCR result: {level!r}"
+        ) from exc
 
     characters[resonatorID]['level'] = characterLvl
     characters[resonatorID]['ascension'] = ascensionLvl
@@ -104,12 +106,18 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
         _cache[rankHash] = rank
 
     try:
-        characters[resonatorID]['weapon']['id'] = weaponID
-        characters[resonatorID]['weapon']['level'] = int(level[0])
-        characters[resonatorID]['weapon']['ascension'] = ASCENSION_LEVELS.index(int(level[1]))
-        characters[resonatorID]['weapon']['rank'] = int(rank)
-    except (ValueError, IndexError, KeyError, TypeError):
-        logger.debug('Failed scraping the weapon', exc_info=True)
+        weaponLevel = int(level[0])
+        weaponAscension = ASCENSION_LEVELS.index(int(level[1]))
+        weaponRank = int(rank)
+    except (ValueError, IndexError, TypeError) as exc:
+        raise ValueError(
+            f"Unable to parse equipped weapon values: level={level!r}, rank={rank!r}"
+        ) from exc
+
+    characters[resonatorID]['weapon']['id'] = weaponID
+    characters[resonatorID]['weapon']['level'] = weaponLevel
+    characters[resonatorID]['weapon']['ascension'] = weaponAscension
+    characters[resonatorID]['weapon']['rank'] = weaponRank
 
 def scrapeSkills(controller: WindowsInputController, screenInfo: ScreenInfo, characters: dict, resonatorID: str, _cache: dict):
 
@@ -129,11 +137,12 @@ def scrapeSkills(controller: WindowsInputController, screenInfo: ScreenInfo, cha
             level = imageToString(levelImage, '', allowedChars=string.digits)
             _cache[levelHash] = level
 
-        try: level = int(level)
-        except (TypeError, ValueError):
-            level = 1
-            _cache[levelHash] = level
-            logger.debug('Failed scraping the skill level')
+        try:
+            level = int(level)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Unable to parse skill level from OCR result: {level!r}"
+            ) from exc
 
         characters[resonatorID]['skills'][SKILL_LEGENDS[index]] = level
 
