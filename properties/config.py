@@ -2,7 +2,8 @@ import sys
 import json
 import string
 from pathlib import Path
-from rapidocr_onnxruntime import RapidOCR
+
+from scraping.rover import ROVER_ELEMENTS, ROVER_GENDERS
 from qfluentwidgets import (
 	qconfig, QConfig, ConfigValidator,
 	ConfigItem, OptionsConfigItem, BoolValidator,
@@ -11,7 +12,6 @@ from qfluentwidgets import (
 )
 
 basePATH: Path = Path(sys.executable if getattr(sys, 'frozen', False) else str()).parent
-ocr = RapidOCR()
 
 # Default values
 PROCESS_NAME = 'Client-Win64-Shipping.exe'
@@ -19,8 +19,26 @@ WINDOW_NAME = 'Wuthering Waves'
 INVENTORY = {'date': str(), 'items': dict()}
 FAILED: list[dict] = list()
 maxLength = 12
-try: LANGUAGES = json.load(open(basePATH / 'data' / 'languages.json', 'r', encoding='utf-8'))
-except: LANGUAGES = {'English': 'en'}
+DEFAULT_LANGUAGES = {
+	'English': 'en',
+	'Korean': 'ko',
+	'Japanese': 'ja',
+	'German': 'de',
+	'Spanish': 'es',
+	'French': 'fr',
+	'Indonesian': 'id',
+	'Portuguese': 'pt',
+	'Russian': 'ru',
+	'Thai': 'th',
+	'Vietnamese': 'vi',
+	'Simplified Chinese': 'zh-Hans',
+	'Traditional Chinese': 'zh-Hant',
+}
+try:
+	with open(basePATH / 'data' / 'languages.json', 'r', encoding='utf-8') as languageFile:
+		LANGUAGES = {**DEFAULT_LANGUAGES, **json.load(languageFile)}
+except (FileNotFoundError, json.JSONDecodeError, OSError, TypeError):
+	LANGUAGES = DEFAULT_LANGUAGES.copy()
 
 def alphabethList() -> list[str]:
 	"""Generate a list of uppercase letters, digits, and punctuation."""
@@ -102,6 +120,18 @@ class Config(QConfig):
 	inventoryKeybind = OptionsConfigItem('InGame', 'InventoryKeybind', 'B', OptionsValidator(alphabethList()))
 	resonatorKeybind = OptionsConfigItem('InGame', 'ResonatorKeybind', 'C', OptionsValidator(alphabethList()))
 	roverName = ConfigItem('InGame', 'RoverName', 'Rover', TextValidator(max_length=maxLength))
+	roverGender = OptionsConfigItem(
+		'InGame',
+		'RoverGender',
+		'Female',
+		OptionsValidator(list(ROVER_GENDERS)),
+	)
+	roverElement = OptionsConfigItem(
+		'InGame',
+		'RoverElement',
+		'Spectro',
+		OptionsValidator(list(ROVER_ELEMENTS)),
+	)
 
 	# LControlPanel settings
 	scanCharacters = ConfigItem("Scanner", "ScanCharacters", False, BoolValidator())
@@ -119,9 +149,9 @@ class Config(QConfig):
 
 # Application metadata
 HELP_URL = "https://discord.gg/y6b2kMqs"
-FEEDBACK_URL = "https://github.com/Psycho-Marcus/WuWa_Inventory_Kamera/issues"
-RELEASE_URL = "https://github.com/Psycho-Marcus/WuWa_Inventory_Kamera/releases/latest"
+FEEDBACK_URL = "https://github.com/range08/WuWa_Inventory_Kamera/issues"
+RELEASE_URL = "https://github.com/range08/WuWa_Inventory_Kamera/releases/latest"
 
 # Load configuration
 cfg = Config()
-qconfig.load('config/config.json', cfg)
+qconfig.load(str(basePATH / 'config' / 'config.json'), cfg)

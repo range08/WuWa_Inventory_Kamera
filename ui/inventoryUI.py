@@ -16,7 +16,13 @@ from qfluentwidgets import (
 
 from ui.custom_widgets.widget import MultiplePushSettingCard
 from properties.config import cfg, basePATH
-from scraping.utils.common import itemsID
+from scraping.data_store import (
+    find_item_by_display_name,
+    find_item_by_id,
+    get_item,
+)
+from scraping.export_schema import ExportValidationError, normalize_inventory_payload
+from scraping.exporter import write_json_atomic
 
 logger = logging.getLogger('InventoryInterface')
 
@@ -43,12 +49,23 @@ class ItemCard(CardWidget):
 		self.quantityLineEdit.setAlignment(Qt.AlignCenter)
 
 	def setupImage(self, image_path):
-		"""Load and display the item's image."""
+		"""Load the item icon without making it a hard UI dependency."""
 		pixmap = QPixmap(image_path)
-		scaled_pixmap = pixmap.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-		self.imageLabel.setPixmap(scaled_pixmap)
 		self.imageLabel.setFixedSize(64, 64)
 		self.imageLabel.setAlignment(Qt.AlignCenter)
+
+		if pixmap.isNull():
+			self.imageLabel.setText("—")
+			self.imageLabel.setToolTip("Item icon is not cached locally.")
+			return
+
+		scaled_pixmap = pixmap.scaled(
+			64,
+			64,
+			Qt.KeepAspectRatio,
+			Qt.SmoothTransformation,
+		)
+		self.imageLabel.setPixmap(scaled_pixmap)
 
 	def setupLayout(self):
 		"""Arrange widgets within the layout."""
@@ -139,12 +156,22 @@ class InventoryInterface(ScrollArea):
 
 		if file_path:
 			self.inventoryFileCard.setContent(file_path)
-			with open(file_path, 'r', encoding='utf-8') as file:
-				try:
-					data = json.load(file)
-					self.__populateGrid(data)
-				except json.JSONDecodeError as e:
-					logger.error(f"Error loading JSON file: {e}", exc_info=True)
+			try:
+				with open(file_path, 'r', encoding='utf-8') as file:
+					data = normalize_inventory_payload(json.load(file))
+				self.__populateGrid(data)
+			except (
+				OSError,
+				UnicodeDecodeError,
+				json.JSONDecodeError,
+				ExportValidationError,
+			) as exc:
+				logger.error(
+					"Unable to load inventory file %s: %s",
+					file_path,
+					exc,
+					exc_info=True,
+				)
 
 	def __saveInventoryFile(self):
 		"""Save current inventory data to a JSON file."""
@@ -156,12 +183,11 @@ class InventoryInterface(ScrollArea):
 				if isinstance(widget, ItemCard):
 					item_name = widget.getItemName()
 					quantity = widget.getQuantity()
-					item_id = itemsID.get(item_name, {}).get('id', None)
+					item_id = self._getItemIDByName(item_name)
 					if item_id is not None:
 						inventory_data[item_id] = quantity
 			
-			with open(file_path, 'w', encoding='utf-8') as file:
-				json.dump(inventory_data, file, ensure_ascii=False, indent=4)
+			write_json_atomic(file_path, inventory_data)
 
 	def __populateGrid(self, inventory_file):
 		"""Populate the grid layout with ItemCard widgets based on the inventory data."""
@@ -172,14 +198,39 @@ class InventoryInterface(ScrollArea):
 			if widget:
 				widget.setParent(None)
 
-		for index, item_id in enumerate(inventory_file):
-			image, name = self._getItemInfoByID(item_id)
-			card = ItemCard(str(basePATH / 'assets' / image), name, inventory_file[item_id])
-			self.gridLayout.addWidget(card, index // columns, index % columns)
+		display_index = 0
+		for item_id, quantity in inventory_file.items():
+			item_info = self._getItemInfoByID(item_id)
+			if item_info is None:
+				logger.warning(
+					"Skipping unknown item ID in loaded inventory: %s",
+					item_id,
+				)
+				continue
+
+			image, name = item_info
+			card = ItemCard(str(basePATH / 'assets' / image), name, quantity)
+			self.gridLayout.addWidget(
+				card,
+				display_index // columns,
+				display_index % columns,
+			)
+			display_index += 1
+
+	def _getItemIDByName(self, item_name: str):
+		"""Resolve a localized display name back to its item ID."""
+		normalized = ''.join(item_name.split()).lower()
+		info = get_item(normalized) or find_item_by_display_name(item_name)
+		return info["id"] if info is not None else None
 
 	def _getItemInfoByID(self, item_id: int):
 		"""Retrieve item image and name by its ID."""
-		for _, info in itemsID.items():
-			if info['id'] == int(item_id):
-				return info['image'], info['name']
-		return 'None', 'None'
+		try:
+			numeric_id = int(item_id)
+		except (TypeError, ValueError):
+			return None
+
+		info = find_item_by_id(numeric_id)
+		if info is None:
+			return None
+		return info["image"], info["name"]

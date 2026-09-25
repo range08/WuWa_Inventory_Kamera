@@ -60,8 +60,10 @@ class HomeInterface(QWidget):
 			mainLayout = QHBoxLayout()
 
 			image_label = PixmapLabel()
-			try: image = QImage(FAILED[0]['image'])
-			except: image = QImage('')
+			try:
+				image = QImage(str(FAILED[0]['image']))
+			except (KeyError, TypeError):
+				image = QImage('')
 			pixmap = QPixmap.fromImage(image)
 			image_label.setPixmap(pixmap)
 			image_label.setScaledContents(True)
@@ -71,39 +73,73 @@ class HomeInterface(QWidget):
 			middle_layout = QVBoxLayout()
 			middle_layout.addStretch(1)
 
-			owned_layout = QVBoxLayout()
-			owned_label = BodyLabel("Owned")
-			self.owned_spinbox = SpinBox()
-			self.owned_spinbox.setRange(1, 9999)
-			self.owned_spinbox.setValue(FAILED[0]['owned'])
-			owned_layout.addWidget(owned_label)
-			owned_layout.addWidget(self.owned_spinbox)
-			middle_layout.addLayout(owned_layout)
+			review = FAILED[0]
+			review_kind = review.get('kind', 'item')
+			candidate = review.get('candidate')
+			confidence = review.get('confidence')
+			reasons = review.get('reasons') or ()
+			details = []
+			if candidate:
+				details.append(f"Candidate: {candidate}")
+			if isinstance(confidence, (int, float)):
+				details.append(f"OCR confidence: {confidence:.1%}")
+			if reasons:
+				details.append("Review reason: " + ", ".join(reasons))
+			if details:
+				middle_layout.addWidget(BodyLabel("\n".join(details)))
 
 			skip_button = PushButton("Skip")
-			change_button = PushButton("Update")
 			skip_button.clicked.connect(self.onSkipButtonClicked)
-			change_button.clicked.connect(self.onChangeButtonClicked)
-			middle_layout.addWidget(skip_button)
-			middle_layout.addWidget(change_button)
-			middle_layout.addStretch(1)
-			mainLayout.addLayout(middle_layout)
 
-			right_layout = QVBoxLayout()
-			self.search_bar = LineEdit()
-			self.search_bar.setPlaceholderText("Search...")
-			self.search_bar.textChanged.connect(self.filter_list)
+			if review_kind == 'item':
+				owned_layout = QVBoxLayout()
+				owned_label = BodyLabel("Owned")
+				self.owned_spinbox = SpinBox()
+				self.owned_spinbox.setRange(0, 999999999)
+				self.owned_spinbox.setSpecialValueText("Unknown")
+				owned = review.get('owned')
+				self.owned_spinbox.setValue(
+					owned if isinstance(owned, int) and owned >= 0 else 0
+				)
+				owned_layout.addWidget(owned_label)
+				owned_layout.addWidget(self.owned_spinbox)
+				middle_layout.addLayout(owned_layout)
 
-			self.list_widget = ListWidget()
-			self.list_widget.addItems([itemsID[item]['name'] for item in sorted(itemsID)])
+				change_button = PushButton("Update")
+				change_button.clicked.connect(self.onChangeButtonClicked)
+				middle_layout.addWidget(skip_button)
+				middle_layout.addWidget(change_button)
+				middle_layout.addStretch(1)
+				mainLayout.addLayout(middle_layout)
 
-			right_layout.addWidget(self.search_bar)
-			right_layout.addWidget(self.list_widget)
+				right_layout = QVBoxLayout()
+				self.search_bar = LineEdit()
+				self.search_bar.setPlaceholderText("Search...")
+				self.search_bar.textChanged.connect(self.filter_list)
 
-			mainLayout.addLayout(right_layout)
-			mainLayout.setStretch(0, 1)
-			mainLayout.setStretch(1, 1)
-			mainLayout.setStretch(2, 3)
+				self.list_widget = ListWidget()
+				self.list_widget.addItems([
+					itemsID[item]['name'] for item in sorted(itemsID)
+				])
+
+				right_layout.addWidget(self.search_bar)
+				right_layout.addWidget(self.list_widget)
+				mainLayout.addLayout(right_layout)
+				mainLayout.setStretch(0, 1)
+				mainLayout.setStretch(1, 1)
+				mainLayout.setStretch(2, 3)
+			else:
+				middle_layout.addWidget(
+					BodyLabel(
+						f"{review_kind.capitalize()} entry preserved for review. "
+						"Direct editing for this review type is not enabled yet."
+					)
+				)
+				middle_layout.addWidget(skip_button)
+				middle_layout.addStretch(1)
+				mainLayout.addLayout(middle_layout)
+				mainLayout.setStretch(0, 2)
+				mainLayout.setStretch(1, 1)
 
 			container.addLayout(mainLayout)
 		else:
@@ -114,14 +150,20 @@ class HomeInterface(QWidget):
 		self.rightWidget.setVisible(True)
 		self.rightWidget.update()
 
+	def _removeFailedArtifactFiles(self, failed_item):
+		"""Delete local review artifacts after the item is resolved/skipped."""
+		for key in ('image', 'metadata'):
+			path = failed_item.get(key)
+			if path:
+				Path(path).unlink(missing_ok=True)
+
 	def onSkipButtonClicked(self):
 		"""Handle the Skip button click event."""
 		global FAILED
 
 		if FAILED:
-			Path(FAILED[0]['image']).unlink(missing_ok=True)
-			
-			FAILED.pop(0)
+			failed_item = FAILED.pop(0)
+			self._removeFailedArtifactFiles(failed_item)
 			self.updateUISignal.emit()
 
 	def onChangeButtonClicked(self):
@@ -130,13 +172,23 @@ class HomeInterface(QWidget):
 
 		selected_item = self.list_widget.currentItem()
 		if selected_item:
+			owned = self.owned_spinbox.value()
+			if owned <= 0:
+				self.showNotification(
+					'warning',
+					'Quantity required',
+					'Enter the owned quantity before updating this item.',
+				)
+				return
+
 			item_id = itemsID.get(selected_item.text().lower().replace(' ', ''))['id']
-			INVENTORY['items'][item_id] = self.owned_spinbox.value()
+			INVENTORY['items'][item_id] = owned
 			savingScraped(START_DATE=INVENTORY['date'])
 		
 			if FAILED:
-				FAILED.pop(0)
-			
+				failed_item = FAILED.pop(0)
+				self._removeFailedArtifactFiles(failed_item)
+
 			self.updateUISignal.emit()
 		else:
 			self.showNotification('warning', 'Warning', 'Select the item name from the list on the right side.')

@@ -2,16 +2,33 @@ import time
 import string
 import logging
 import numpy as np
-from difflib import get_close_matches as getMatches
 from collections import defaultdict
 
 from scraping.utils import charactersID, weaponsID, definedText
 from scraping.utils import (
-    screenshot, convertToBlackWhite, imageToString,
+    screenshot, convertToBlackWhite, imageToResult, imageToString,
     WindowsInputController
 )
 from game.screenInfo import ScreenInfo
 from properties.config import cfg
+from scraping.ocr_engine import (
+    INTEGER_PROFILE,
+    LEVEL_PROFILE,
+    NAME_PROFILE,
+    require_confidence,
+)
+from scraping.matching import (
+    EQUIPPED_WEAPON_NAME_CUTOFF,
+    RESONATOR_NAME_CUTOFF,
+    best_match,
+)
+from scraping.cancellation import check_cancelled
+from scraping.parsing import (
+    ScanParseError,
+    ascension_from_level_cap,
+    parse_level_pair,
+)
+from scraping.rover import resolve_rover_id
 
 logger = logging.getLogger('CharacterScraper')
 
@@ -24,23 +41,43 @@ SKILL_LEGENDS = {
     4: 'intro'
 }
 ASCENSION_LEVELS = [20, 40, 50, 60, 70, 80, 90]
+MAX_RESONATOR_VIEWPORTS = 128
 
-def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, _cache: dict) -> tuple[str, bool]:
+def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, nameCache: dict, _cache: dict) -> tuple[str, bool]:
     resonatorNameImage = image[screenInfo.characters.resonatorName.y:screenInfo.characters.resonatorName.y + screenInfo.characters.resonatorName.h, screenInfo.characters.resonatorName.x:screenInfo.characters.resonatorName.x + screenInfo.characters.resonatorName.w]
     resonatorNameImage = convertToBlackWhite(resonatorNameImage)
     resonatorNameHash = hash(resonatorNameImage.tobytes())
 
-    if resonatorNameHash in _cache:
-        return None, True
+    if resonatorNameHash in nameCache:
+        resonatorID = nameCache[resonatorNameHash]
     else:
-        resonatorName = imageToString(resonatorNameImage, '', bannedChars=' ').lower()
-    
-        result = getMatches(resonatorName, charactersID, 1, 0.9)
+        resonatorNameResult = require_confidence(
+            imageToResult(resonatorNameImage, profile=NAME_PROFILE),
+            field="resonator-name",
+        )
+        resonatorName = resonatorNameResult.text.lower()
+
+        result = best_match(
+            resonatorName,
+            charactersID,
+            cutoff=RESONATOR_NAME_CUTOFF,
+        )
         if result:
-            resonatorName = result[0]
-        
-        resonatorID = '1502' if resonatorName == cfg.get(cfg.roverName).replace(' ', '').lower() else charactersID.get(resonatorName, resonatorName)
-        _cache[resonatorNameHash] = resonatorID
+            resonatorName = result
+
+        roverName = cfg.get(cfg.roverName).replace(' ', '').lower()
+        if resonatorName == roverName:
+            resonatorID = resolve_rover_id(
+                cfg.get(cfg.roverGender),
+                cfg.get(cfg.roverElement),
+            )
+        elif resonatorName in charactersID:
+            resonatorID = charactersID[resonatorName]
+        else:
+            raise ValueError(
+                f"Unable to identify resonator from OCR result: {resonatorName!r}"
+            )
+        nameCache[resonatorNameHash] = resonatorID
 
     if resonatorID in characters:
         return resonatorID, True
@@ -50,16 +87,22 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
     levelHash = hash(levelImage.tobytes())
 
     if levelHash in _cache:
-        level = _cache[levelHash]
+        levelText = _cache[levelHash]
     else:
-        level = imageToString(levelImage, '', allowedChars=string.digits + '/').split('/')
-        _cache[levelHash] = level
+        levelResult = require_confidence(
+            imageToResult(levelImage, profile=LEVEL_PROFILE),
+            field="resonator-level",
+        )
+        levelText = levelResult.text
+        _cache[levelHash] = levelText
 
-    try: ascensionLvl = ASCENSION_LEVELS.index(int(level[1]))
-    except: ascensionLvl = 0
-
-    try: characterLvl = int(level[0])
-    except: characterLvl = 1
+    try:
+        characterLvl, levelCap = parse_level_pair(levelText)
+        ascensionLvl = ascension_from_level_cap(levelCap, ASCENSION_LEVELS)
+    except ScanParseError as exc:
+        raise ValueError(
+            f"Unable to parse resonator level from OCR result: {levelText!r}"
+        ) from exc
 
     characters[resonatorID]['level'] = characterLvl
     characters[resonatorID]['ascension'] = ascensionLvl
@@ -74,13 +117,25 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     if weaponNameHash in _cache:
         weaponID = _cache[weaponNameHash]
     else:
-        weaponName = imageToString(weaponNameImage, bannedChars=' ').lower()
+        weaponNameResult = require_confidence(
+            imageToResult(weaponNameImage, profile=NAME_PROFILE),
+            field="equipped-weapon-name",
+        )
+        weaponName = weaponNameResult.text.lower()
     
-        result = getMatches(weaponName, weaponsID, 1, 0.9)
+        result = best_match(
+            weaponName,
+            weaponsID,
+            cutoff=EQUIPPED_WEAPON_NAME_CUTOFF,
+        )
         if result:
-            weaponName = result[0]
+            weaponName = result
         
-        weaponID = weaponsID.get(weaponName, {'id': weaponName})['id']
+        if weaponName not in weaponsID:
+            raise ValueError(
+                f"Unable to identify equipped weapon from OCR result: {weaponName!r}"
+            )
+        weaponID = weaponsID[weaponName]['id']
         _cache[weaponNameHash] = weaponID
     
     levelImage = image[screenInfo.characters.weaponLevel.y:screenInfo.characters.weaponLevel.y + screenInfo.characters.weaponLevel.h, screenInfo.characters.weaponLevel.x:screenInfo.characters.weaponLevel.x + screenInfo.characters.weaponLevel.w]
@@ -88,10 +143,14 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     levelHash = hash(levelImage.tobytes())
     
     if levelHash in _cache:
-        level = _cache[levelHash]
+        levelText = _cache[levelHash]
     else:
-        level = imageToString(levelImage, '', allowedChars=string.digits + '/').split('/')
-        _cache[levelHash] = level
+        levelResult = require_confidence(
+            imageToResult(levelImage, profile=LEVEL_PROFILE),
+            field="equipped-weapon-level",
+        )
+        levelText = levelResult.text
+        _cache[levelHash] = levelText
     
     rankImage = image[screenInfo.characters.weaponRank.y:screenInfo.characters.weaponRank.y + screenInfo.characters.weaponRank.h, screenInfo.characters.weaponRank.x:screenInfo.characters.weaponRank.x + screenInfo.characters.weaponRank.w]
     rankImage = convertToBlackWhite(rankImage)
@@ -100,85 +159,131 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     if rankHash in _cache:
         rank = _cache[rankHash]
     else:
-        rank = imageToString(rankImage, '', allowedChars=string.digits)
+        rankResult = require_confidence(
+            imageToResult(rankImage, profile=INTEGER_PROFILE),
+            field="equipped-weapon-rank",
+        )
+        rank = rankResult.text
         _cache[rankHash] = rank
 
     try:
-        characters[resonatorID]['weapon']['id'] = weaponID
-        characters[resonatorID]['weapon']['level'] = int(level[0])
-        characters[resonatorID]['weapon']['ascension'] = ASCENSION_LEVELS.index(int(level[1]))
-        characters[resonatorID]['weapon']['rank'] = int(rank)
-    except:
-        logger.debug('Failed scraping the weapon')
+        weaponLevel, levelCap = parse_level_pair(levelText)
+        weaponAscension = ascension_from_level_cap(levelCap, ASCENSION_LEVELS)
+        weaponRank = int(rank)
+    except (ScanParseError, TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Unable to parse equipped weapon values: level={levelText!r}, rank={rank!r}"
+        ) from exc
+
+    characters[resonatorID]['weapon']['id'] = weaponID
+    characters[resonatorID]['weapon']['level'] = weaponLevel
+    characters[resonatorID]['weapon']['ascension'] = weaponAscension
+    characters[resonatorID]['weapon']['rank'] = weaponRank
 
 def scrapeSkills(controller: WindowsInputController, screenInfo: ScreenInfo, characters: dict, resonatorID: str, _cache: dict):
-
     controller.leftClick(screenInfo.characters.skillClick.x, screenInfo.characters.skillClick.y, .5)
 
-    for index, skills in enumerate(screenInfo.characters.skillPositions):
-        controller.leftClick(skills.x, skills.y)
+    try:
+        for index, skills in enumerate(screenInfo.characters.skillPositions):
+            controller.leftClick(skills.x, skills.y)
 
-        image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor, bw=True)
+            image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor, bw=True)
 
-        levelImage = image[screenInfo.characters.skillLevel.y:screenInfo.characters.skillLevel.y + screenInfo.characters.skillLevel.h, screenInfo.characters.skillLevel.x:screenInfo.characters.skillLevel.x + screenInfo.characters.skillLevel.w]
-        levelHash = hash(levelImage.tobytes())
-        
-        if levelHash in _cache:
-            level = _cache[levelHash]
-        else:
-            level = imageToString(levelImage, '', allowedChars=string.digits)
-            _cache[levelHash] = level
+            levelImage = image[screenInfo.characters.skillLevel.y:screenInfo.characters.skillLevel.y + screenInfo.characters.skillLevel.h, screenInfo.characters.skillLevel.x:screenInfo.characters.skillLevel.x + screenInfo.characters.skillLevel.w]
+            levelHash = hash(levelImage.tobytes())
 
-        try: level = int(level)
-        except:
-            level = 1
-            _cache[levelHash] = level
-            logger.debug('Failed scraping the skill level')
-
-        characters[resonatorID]['skills'][SKILL_LEGENDS[index]] = level
-
-        for y in range(1, 3):
-            controller.leftClick(skills.x, skills.y - (screenInfo.characters.offsets.skillPosition.y * y), .6)
-
-            buttonImage = screenshot(screenInfo.characters.skillButton.x, screenInfo.characters.skillButton.y, screenInfo.characters.skillButton.w, screenInfo.characters.skillButton.h, monitor=screenInfo.monitor, bw=True)
-            buttonHash = hash(buttonImage.tobytes())
-
-            if buttonHash in _cache:
-                button = _cache[button]
+            if levelHash in _cache:
+                level = _cache[levelHash]
             else:
-                button = imageToString(buttonImage).lower()
-                _cache[button] = button
+                levelResult = require_confidence(
+                    imageToResult(levelImage, profile=INTEGER_PROFILE),
+                    field=f"skill-level-{SKILL_LEGENDS[index]}",
+                )
+                level = levelResult.text
+                _cache[levelHash] = level
 
-            if button.lower() == definedText['PrefabTextItem_3963945691_Text']: # MULTILANG
-                key = 'inherent' if index == 2 else f'stats{index}'
-                characters[resonatorID]['skills'][key] += 1
-            else:
-                break
+            try:
+                level = int(level)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"Unable to parse skill level from OCR result: {level!r}"
+                ) from exc
 
-    controller.pressKey('esc')
+            characters[resonatorID]['skills'][SKILL_LEGENDS[index]] = level
+
+            for y in range(1, 3):
+                controller.leftClick(
+                    skills.x,
+                    skills.y - (screenInfo.characters.offsets.skillPosition.y * y),
+                    .6,
+                )
+
+                buttonImage = screenshot(
+                    screenInfo.characters.skillButton.x,
+                    screenInfo.characters.skillButton.y,
+                    screenInfo.characters.skillButton.w,
+                    screenInfo.characters.skillButton.h,
+                    monitor=screenInfo.monitor,
+                    bw=True,
+                )
+                buttonHash = hash(buttonImage.tobytes())
+
+                if buttonHash in _cache:
+                    button = _cache[buttonHash]
+                else:
+                    buttonResult = require_confidence(
+                        imageToResult(buttonImage),
+                        field="skill-node-status",
+                    )
+                    button = buttonResult.text.lower()
+                    _cache[buttonHash] = button
+
+                if button.lower() == definedText['PrefabTextItem_3963945691_Text']: # MULTILANG
+                    key = 'inherent' if index == 2 else f'stats{index}'
+                    characters[resonatorID]['skills'][key] += 1
+                else:
+                    break
+    finally:
+        controller.pressKey('esc')
 
 def scrapeChain(controller: WindowsInputController, screenInfo: ScreenInfo, characters: dict, resonatorID: str, _cache: dict):
     controller.leftClick(screenInfo.characters.chainClick.x, screenInfo.characters.chainClick.y, .7)
 
-    for position in screenInfo.characters.chainPositions:
-        controller.leftClick(position.x, position.y, .2)
+    try:
+        for position in screenInfo.characters.chainPositions:
+            controller.leftClick(position.x, position.y, .2)
 
-        statusImage = screenshot(screenInfo.characters.chainButton.x, screenInfo.characters.chainButton.y, screenInfo.characters.chainButton.w, screenInfo.characters.chainButton.h, monitor=screenInfo.monitor)
-        statusHash = hash(statusImage.tobytes())
-        
-        if statusHash in _cache:
-            status = _cache[statusHash]
-        else:
-            status = imageToString(statusImage, '', bannedChars=f'{string.punctuation} ').lower()
-            _cache[statusHash] = status
+            statusImage = screenshot(
+                screenInfo.characters.chainButton.x,
+                screenInfo.characters.chainButton.y,
+                screenInfo.characters.chainButton.w,
+                screenInfo.characters.chainButton.h,
+                monitor=screenInfo.monitor,
+            )
+            statusHash = hash(statusImage.tobytes())
 
-        if status.lower() != definedText['PrefabTextItem_3963945691_Text']: # MULTILANG
-            break
+            if statusHash in _cache:
+                status = _cache[statusHash]
+            else:
+                statusResult = require_confidence(
+                    imageToResult(
+                        statusImage,
+                        '',
+                        bannedChars=f'{string.punctuation} ',
+                    ),
+                    field="resonance-chain-status",
+                )
+                status = statusResult.text.lower()
+                _cache[statusHash] = status
 
-        characters[resonatorID]['chain'] += 1
-    controller.pressKey('esc')
+            if status.lower() != definedText['PrefabTextItem_3963945691_Text']: # MULTILANG
+                break
 
-def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo):
+            characters[resonatorID]['chain'] += 1
+    finally:
+        controller.pressKey('esc')
+
+def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo, cancel_event=None):
     characters = defaultdict(
         lambda: defaultdict(
             int,
@@ -215,28 +320,55 @@ def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo)
         )
     )
     _cache = dict()
+    nameCache = dict()
 
+    check_cancelled(cancel_event)
     controller.pressKey(cfg.get(cfg.resonatorKeybind), 2, False)
 
-    isDouble = False
     xLeftSide, yLeftSide = screenInfo.characters.leftSide.x, screenInfo.characters.leftSide.y
     xRightSide, yRightSide = screenInfo.characters.rightSide.x, screenInfo.characters.rightSide.y
 
-    while not isDouble:
+    for _ in range(MAX_RESONATOR_VIEWPORTS):
+        check_cancelled(cancel_event)
+        newResonators = 0
+
         for resonatorIndex in range(7):
-            controller.leftClick(xRightSide, yRightSide + (screenInfo.characters.offsets.rightSide.y * resonatorIndex), .7)
+            check_cancelled(cancel_event)
+            controller.leftClick(
+                xRightSide,
+                yRightSide + (screenInfo.characters.offsets.rightSide.y * resonatorIndex),
+                .7,
+            )
             resonatorID = str()
+            alreadySeen = False
 
             for section in range(5):
-                controller.leftClick(xLeftSide, yLeftSide + (screenInfo.characters.offsets.leftSide.y * section), .8)
+                check_cancelled(cancel_event)
+                controller.leftClick(
+                    xLeftSide,
+                    yLeftSide + (screenInfo.characters.offsets.leftSide.y * section),
+                    .8,
+                )
 
-                image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor, bw=True)
+                image = screenshot(
+                    width=screenInfo.width,
+                    height=screenInfo.height,
+                    monitor=screenInfo.monitor,
+                    bw=True,
+                )
 
                 match(section):
                     case 0:
-                        resonatorID, isDouble = scrapeResonator(image, screenInfo, characters, _cache)
-                        if isDouble:
+                        resonatorID, alreadySeen = scrapeResonator(
+                            image,
+                            screenInfo,
+                            characters,
+                            nameCache,
+                            _cache,
+                        )
+                        if alreadySeen:
                             break
+                        newResonators += 1
                     case 1:
                         scrapeWeapon(image, screenInfo, characters, resonatorID, _cache)
                     case 2:
@@ -245,45 +377,18 @@ def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo)
                         scrapeSkills(controller, screenInfo, characters, resonatorID, _cache)
                     case 4:
                         scrapeChain(controller, screenInfo, characters, resonatorID, _cache)
+
                 time.sleep(.5)
 
-            if isDouble:
-                break
-
-        if isDouble:
-            break
+        # Overlapping scroll positions can repeat some characters. Only stop
+        # once an entire seven-slot viewport contains no unseen resonator.
+        if newResonators == 0:
+            return dict(characters)
 
         controller.moveMouse(xRightSide, yRightSide, .3)
         controller.mouseScroll(screenInfo.scroll.characters.y, .5)
-    
-    # Process last page
-    for resonatorIndex in range(6, -1, -1):
-        controller.leftClick(xRightSide, yRightSide + (screenInfo.characters.offsets.rightSide.y * resonatorIndex), .7)
-        resonatorID = str()
-        
-        for section in range(5):
-            controller.leftClick(xLeftSide, yLeftSide + (screenInfo.characters.offsets.leftSide.y * section), .8)
 
-            image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor, bw=True)
+    raise RuntimeError(
+        f"Character scanner exceeded {MAX_RESONATOR_VIEWPORTS} viewports without detecting the end of the resonator list."
+    )
 
-            match(section):
-                case 0:
-                    resonatorID, isDouble = scrapeResonator(image, screenInfo, characters, _cache)
-                    del _cache
-                    return dict(characters)
-                case 1:
-                    scrapeWeapon(image, screenInfo, characters, resonatorID, _cache)
-                case 2:
-                    pass  # Skip echoes for now
-                case 3:
-                    scrapeSkills(controller, screenInfo, characters, resonatorID, _cache)
-                case 4:
-                    scrapeChain(controller, screenInfo, characters, resonatorID, _cache)
-
-            time.sleep(.5)
-        
-        if isDouble:
-            break
-    
-    del _cache
-    return dict(characters)

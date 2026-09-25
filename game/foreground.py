@@ -1,12 +1,15 @@
 import re
 import ctypes
 import logging
+import win32api
 import win32gui
 import win32con
 
 import pywinctl as pwc
 import pymonctl as pmc
 
+from game.gameROI import COORDINATES
+from game.layout import validate_scanner_layout
 from game.screenInfo import ScreenInfo
 from properties.config import PROCESS_NAME, WINDOW_NAME
 
@@ -54,6 +57,51 @@ class WindowManager:
 		else:
 			logger.debug("Cannot retrieve window size: window not found.")
 			return None
+
+
+	def getClientBounds(self) -> tuple[int, int, int, int]|None:
+		"""Return the game client area in physical screen coordinates."""
+		if not self.window:
+			return None
+
+		left, top = win32gui.ClientToScreen(self.window._hWnd, (0, 0))
+		client_left, client_top, client_right, client_bottom = win32gui.GetClientRect(
+			self.window._hWnd
+		)
+		width = client_right - client_left
+		height = client_bottom - client_top
+		return left, top, left + width, top + height
+
+	def getMonitorBounds(self) -> tuple[int, int, int, int]|None:
+		"""Return the target monitor bounds in physical screen coordinates."""
+		if not self.window:
+			return None
+
+		monitor = win32api.MonitorFromWindow(
+			self.window._hWnd,
+			win32con.MONITOR_DEFAULTTONEAREST,
+		)
+		info = win32api.GetMonitorInfo(monitor)
+		return tuple(info["Monitor"])
+
+	def getScannerLayoutError(self) -> str|None:
+		"""Return why the current layout is unsafe for monitor-relative ROIs."""
+		client_bounds = self.getClientBounds()
+		monitor_bounds = self.getMonitorBounds()
+		if client_bounds is None or monitor_bounds is None:
+			return "Unable to determine the Wuthering Waves client/monitor bounds."
+
+		supported_resolutions = {
+			resolution
+			for ratio_data in COORDINATES.values()
+			for resolution in ratio_data
+		}
+		return validate_scanner_layout(
+			client_bounds=client_bounds,
+			monitor_bounds=monitor_bounds,
+			dpi_scale=self.getDPI(),
+			supported_resolutions=supported_resolutions,
+		)
 	
 	def getScreenInfo(self) -> ScreenInfo:
 		width, height = self.getWindowSize() or (1920, 1080)

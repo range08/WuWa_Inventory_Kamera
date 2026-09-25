@@ -1,0 +1,278 @@
+# Modernization audit notes
+
+Baseline repository: `Psycho-Marcus/WuWa_Inventory_Kamera`
+Baseline commit: `7b5ecf4eca355d3f4a06fb0d65e8419d1f984883`
+
+## Confirmed observations
+
+- Windows-only scanner using screen capture, OCR, simulated input, PySide6 UI, and cx_Freeze.
+- Existing scan coverage includes resonators, weapons, echoes, development items, resources, achievements, and Shell Credit.
+- Explicit ROI data exists for 1920x1080 and 1680x1050, with scaled fallback logic.
+- README claims 2560x1440 support, but the inspected ROI table has no explicit 2560x1440 profile; revalidate this.
+- OCR currently discards recognition confidence in `imageToString()`.
+- Several scanner paths use broad exceptions and silent fallback values.
+- Data updater is coupled to legacy `Dimbreath/WutheringData` paths.
+- Asset updater is coupled to `Stormy-Waves/WW_Icon`.
+- `setup.py` currently reports version 1.7.1.
+
+## Confirmed correctness defect
+
+In `scraping/charactersScraper.py`, `scrapeSkills()` checks `buttonHash in _cache` but reads `_cache[button]`. The lookup must use `buttonHash`.
+
+## Release strategy
+
+Do not claim 3.6 compatibility based only on data regeneration. Current-game ROI and end-to-end scanning must be verified, especially Korean UI at 1920x1080.
+
+
+## Phase 1 progress
+
+- Fixed the skill-button OCR cache to read and write with `buttonHash`.
+- Audited cache access patterns in `charactersScraper.py`, `weaponsScraper.py`, `echoesScraper.py`, `itemsScraper.py`, `achievementsScraper.py`, and `shellScraper.py`; no additional mismatched cache-key use was found by inspection.
+
+
+## Phase 2 initial provider work
+
+- Added `updater/providers.py` as a dependency-free source descriptor layer.
+- Added parsing for upstream Game Version, Resource Version, and Changelist metadata.
+- Added explicit source-path validation.
+- Added unit tests for metadata parsing, required paths, unsafe path rejection, and fail-closed metadata parsing.
+- Added `docs/GAME_DATA.md` documenting the no-vendoring boundary for upstream game data.
+- The Arikatsu data repository exposes current Global 3.6 data but no explicit LICENSE file was found during this audit; raw BinData/Textmaps therefore remain local update/build inputs and are not to be redistributed by this fork.
+- Added a minimal Windows GitHub Actions workflow running `compileall` and dependency-free unit tests.
+
+
+## Additional Phase 1 fixes
+
+- Fixed an echo rarity cache bug: cached rarity values were stored as integers but later read as if they were indexable lists.
+- Item quantity OCR failures are no longer committed to inventory as a confirmed quantity of 1; they are routed through the existing manual-review path.
+- Removed the remaining bare `except:` statements from scanner, UI fallback, and legacy updater paths.
+- Audited Python function signatures for mutable `{}`/`[]` defaults; no remaining cases were found after the `loadFile()` fix.
+- Modernization CI passed on head `f9bdde96d67cf7737c51400fdae86258ac4eb3d2`.
+
+
+## Game-data pipeline integration
+
+- Added a local source cache that resolves the selected upstream ref to an exact commit SHA and records SHA-256/size for every downloaded input.
+- Added atomic writes for source files and generated scanner mappings.
+- Added a legacy-compatible mapping generator for characters, weapons, items, echoes, achievements, echo stats, sonata names, and scanner-defined text.
+- Added `python -m tools.update_game_data --language <code> --ref <ref>`.
+- Replaced the runtime implementation of the existing Qt `DataUpdater` adapter with the new Global provider/cache/generator pipeline while keeping its signals stable for `loadingUI.py`.
+- Added the known Global language list to configuration so Korean is selectable before a first successful data download.
+- Removed the now-unused Babel dependency and explicitly declared pywin32, which is imported directly by the input/clipboard code.
+
+
+## Real Global 3.6 data validation
+
+A Windows GitHub Actions smoke run validated the modernized pipeline against the actual Global 3.6 Korean source at revision `353f2eaed119bc9f680eab92807d20ac75a79b40`.
+
+Generated mapping counts:
+
+- characters: 54
+- weapons: 122
+- items: 1776
+- echoes: 220
+- achievements: 1195
+
+The source manifest reported Game Version 3.6.0 and Resource Version 3.6.6. A second run using `--offline` returned `regenerated: false`, confirming that validated source and generated mappings can be reused without re-downloading or re-parsing the large textmap.
+
+Real data exposed two classes of ambiguity that fixture-only tests had missed:
+
+- protagonist/main-role variants share localized names, so IDs listed by `BinData/main_role_change/mainroleconfig.json` are excluded from the ordinary character-name map and remain handled by the scanner's Rover-specific path;
+- unrelated internal items can share the same localized visible string, including placeholder/error text. OCR-visible mappings now remove ambiguous names instead of choosing an arbitrary ID.
+
+Weapon and Echo final-page boundaries were also corrected to stop at `global_index >= total_count`, which handles exact multiples of 24 correctly.
+
+
+## Additional correctness hardening
+
+- Added strict source-record validation for RoleInfo, WeaponConf, ItemInfo, MonsterInfo, Achievement, and main-role configuration inputs. Malformed records now fail with `MappingGenerationError` instead of being silently skipped.
+- Added fail-closed checks that reject empty generated scanner mappings.
+- Added dependency-free tests for malformed source data and empty mappings.
+- Reworked scraper subprocess result handling so inventory chunks, manual-review failures, normal completion, cancellation, and fatal errors are distinct message types.
+- Parent process now consumes queue messages while the scanner child is alive, avoiding a potential multiprocessing pipe/join deadlock on larger inventories.
+- Recognition failures are sent separately from inventory chunks, so they are not lost when no inventory item was successfully recognized.
+- Added a cancellation event so user cancellation/game-focus loss is not misreported as success.
+- Added per-scanner exception context (for example, `weapons scanner failed: ...`) before propagating failures to the UI.
+- Removed several remaining plausible-value OCR fallbacks: invalid character/skill/weapon values, weapon and echo counts, echo stat values/rarity/level, and Shell Credit now fail closed rather than being stored as 0/1/24 defaults.
+- Modernization CI passed after these changes on the latest modernization head.
+
+
+## Structured OCR modernization
+
+- Added a lazy `OCREngine` adapter around RapidOCR so OCR behavior is testable without importing the runtime backend in unit tests.
+- Added structured `OCRResult` / `OCRToken` data carrying recognized text, average confidence, token confidence, bounding boxes, and profile name.
+- Added NFKC Unicode normalization before field filtering.
+- Added named OCR profiles for names, integers, level values, percentages, localized stat names/values, and Korean/general localized text.
+- Preserved the existing `imageToString()` API as a compatibility wrapper while adding `imageToResult()` for confidence-aware callers.
+- Migrated character, weapon, echo-count/stat, and Shell Credit OCR paths to typed profiles.
+- Fixed a Korean-specific echo-stat bug where the old `ascii_letters` filter removed all Hangul before matching localized stat names.
+- Added dependency-free tests for confidence/bbox preservation, Unicode normalization, row grouping, integer filtering, Korean stat names, malformed backend results, empty results, and partial-token filtering.
+- Modernization CI passed on head `7203a2098593f981be724f21201e8e6eb9958600`.
+
+
+## Item inventory termination hardening
+
+- Removed the legacy `ceil(quantity / 999)` end-of-inventory heuristic; owned quantity is no longer used to infer scrolling state.
+- Item detail cards now use SHA-256 fingerprints of the preprocessed information ROI.
+- Repeated cards caused by overlapping scroll positions or empty slots retaining the previous selection are committed only once.
+- A repeated 24-cell viewport fingerprint sequence marks the end of the scroll range.
+- Added a bounded `MAX_VIEWPORTS` guard so unexpected UI/OCR behavior fails closed instead of scrolling indefinitely.
+- Failed-recognition screenshots now use a safe fingerprint-based filename rather than raw OCR text.
+- Invalid quantity OCR is represented as unknown (`None`) in the manual-review record instead of a fabricated quantity of 1.
+
+
+## OCR name matching and fail-closed recognition
+
+- Added a dependency-free matching helper with separate cutoffs for resonators, equipped weapons, weapon-inventory entries, items, and echoes so each field can be tuned independently from screenshot fixtures.
+- Added unit coverage for exact, fuzzy, rejected, and invalid-threshold matching.
+- Unknown resonator and equipped-weapon names no longer leak raw OCR text into otherwise valid character exports.
+- Unknown weapon inventory entries and echo names are surfaced as scanner errors instead of being silently skipped.
+- Echo stat parsing now rejects name/value count mismatches instead of truncating through `zip()`.
+- Incomplete echo level OCR now fails closed.
+- Sonata recognition now fails when no known set name is found and restores the scroll position through a `finally` block even on error.
+
+
+## Resonator list termination hardening
+
+- Removed the first-duplicate termination behavior from the resonator scanner.
+- Resonator-name image hashes now resolve through a dedicated name cache instead of sharing duplicate semantics with unrelated OCR cache entries.
+- Duplicate resonators in overlapping scroll viewports are skipped individually while later slots are still inspected.
+- Scanning now ends only after a complete seven-slot viewport contains no unseen resonator.
+- Removed the reverse-order last-page recovery pass, which is no longer needed with viewport-level termination.
+- Added a bounded 128-viewport guard to fail closed if the UI never reaches a stable end state.
+
+
+## Verified Global 3.6 Korean game-data smoke
+
+GitHub Actions run `36111955248` completed successfully on Windows against the real `Arikatsu/WutheringWaves_Data` 3.6 source.
+
+Verified source identity:
+- game version: 3.6.0
+- resource version: 3.6.6
+- revision: `353f2eaed119bc9f680eab92807d20ac75a79b40`
+- language: `ko`
+
+Generated mapping counts:
+- characters: 54
+- weapons: 122
+- items: 1776
+- echoes: 220
+- achievements: 1195
+
+The same workflow then ran the updater in explicit offline mode and reported `regenerated: false`, confirming validated source-cache and generated-mapping reuse.
+
+## Runtime dependency modernization
+
+- Replaced the retiring `rapidocr-onnxruntime` package with unified `rapidocr==3.9.2` plus `onnxruntime==1.30.0`.
+- Extended the OCR adapter to accept modern `RapidOCROutput` objects with parallel `boxes`, `txts`, and `scores` fields while retaining legacy result-envelope compatibility.
+- Added dependency-free tests for modern output adaptation and NumPy-like box arrays.
+- Pinned `pywin32==312`.
+- Added a Windows dependency smoke matrix for Python 3.12, 3.13, and 3.14.
+- Added `version.py` as the single application version source used by cx_Freeze package metadata and output paths.
+
+
+## Scanner layout safety
+
+- Added a dependency-free layout policy and unit tests.
+- The scanner now reads the actual Win32 client-area bounds and target monitor bounds before spawning scanner input.
+- Until DPI-aware client-relative transforms are implemented, non-100% Windows scaling is rejected.
+- The client area must exactly fill the target monitor because current screenshots/clicks are monitor-relative.
+- Resolutions without an explicit ROI profile are rejected rather than dynamically scaled for live automation.
+- Existing dynamic scaling code remains available internally, but scanner startup no longer relies on it for unverified layouts.
+
+
+## Fresh-install and packaged-runtime verification
+
+- Fresh Install Smoke run `36119576256` succeeded on a clean Windows runner with no tracked `data/` directory.
+- The workflow created a new Python 3.14 virtual environment, installed the pinned dependencies from scratch, verified imports before game-data generation, generated real Global 3.6 Korean mappings, loaded them into the explicit data store, constructed the main Qt window offscreen, and compiled the repository.
+- Fresh Install Smoke is manual-only after verification to avoid repeatedly downloading the large real game-data inputs.
+- The Python 3.14 cx_Freeze Build Smoke now launches the generated `WuWa Inventory Kamera.exe --smoke-test` and requires a zero exit code; run `36121553447` completed successfully.
+- Dependency Smoke now constructs the real main Qt window offscreen on Python 3.12, 3.13, and 3.14 in addition to importing runtime modules.
+
+## Generated data-store and export contract
+
+- Generated mapping files are no longer read into scanner globals at module-import time.
+- `scraping/data_store.py` owns stable live containers; all generated files and nested item/weapon/text/ID record shapes are validated before any live container is mutated.
+- Added typed accessors for items, weapons, characters, Echoes, achievements, and item lookup by ID/display name.
+- Scanner JSON writes are deterministic UTF-8 and atomic.
+- Existing WuWa Tracker-compatible files retain their original filenames and data shapes.
+- `scan_metadata.json` records schema/scanner version, scan time, game/resource version, language, upstream source/ref, and exact revision.
+- `validation_report.json` records selected scanners, per-section counts, and manual-review state.
+- `account.json` is emitted only when no manual-review item is pending at scan completion.
+- The common export writer rejects credential-like keys such as OAuth codes, access/refresh tokens, passwords, cookies, credentials, and client secrets at any nesting depth.
+
+## OCR review and preprocessing
+
+- Added confidence-gated OCR candidate selection: a confident primary OCR result is returned immediately; low-confidence/empty results retry thresholded and inverted preprocessing candidates.
+- Failed item recognition stores only the item-description review crop plus a JSON sidecar with OCR text/confidence, failure reason, image fingerprint, parsed quantity if available, and explicit privacy flags.
+- Resolving or skipping a failed item removes both the crop and sidecar.
+- Failed item quantities support an explicit Unknown state instead of inventing a value.
+
+## Cooperative scanner cancellation
+
+- The stop monitor no longer terminates the scanner child immediately.
+- Enter/focus loss sets a shared cancellation event; long scanner loops check it and raise a dedicated `ScanCancelled` signal.
+- The child exits through its normal `finally` cleanup so it can send ESC and restore the game UI.
+- The parent waits up to four seconds for cooperative exit and only then uses hard process termination as a bounded fallback.
+- Once scanning is complete, cancellation monitoring stops before the short atomic export-finalization phase to avoid a late stop key producing a partial export state.
+
+## Rover variant correctness
+
+- Removed the fixed Rover ID `1502` assumption.
+- Added explicit Rover Gender and Rover Element settings while keeping Female/Spectro as the legacy-compatible default.
+- Current Global 3.6 main-role variant IDs are mapped for Spectro, Havoc, Aero, and Electro for both genders.
+- Character scanning resolves the configured Rover variant rather than guessing from the user-defined Rover display name.
+
+
+## Fresh-install and packaged-runtime verification
+
+- Fresh Install Smoke run `36119576256` succeeded on Windows from a clean repository state with no tracked `data/` directory.
+- The workflow created a new Python 3.14 virtual environment, installed pinned dependencies, verified imports before generated data existed, generated real Global 3.6 Korean mappings from empty state, loaded the mappings into the explicit data store, constructed the Qt main window with the offscreen platform, and compiled the project.
+- The heavy fresh-install workflow was returned to manual-only execution after verification to avoid repeated large external data downloads on every PR commit.
+- Build Smoke now builds the Python 3.14 cx_Freeze executable and runs `WuWa Inventory Kamera.exe --smoke-test`; the packaged runtime smoke succeeded.
+- Dependency Smoke now constructs the actual Qt main window on Python 3.12, 3.13, and 3.14 rather than only importing the class.
+
+## Generated data-store hardening
+
+- Removed import-time reads of generated mapping JSON files.
+- Added an explicit in-memory generated-data store whose dict/list object identities remain stable across reloads.
+- Reload validates every mapping before mutating any live scanner container, preventing a partial mixed-version state when one generated file is malformed.
+- Added nested validation for item/weapon records and typed accessors for common item/weapon/character/Echo/achievement lookups.
+- Added unit coverage for stable-container reloads, atomic failure behavior, nested record validation, and typed accessors.
+
+## Cooperative cancellation and UI recovery
+
+- Added a scanner-wide cooperative cancellation primitive.
+- Character, weapon, Echo, item/resource, and achievement loops now check the shared cancel event at bounded points.
+- The stop monitor requests cancellation rather than immediately killing the scanner process.
+- The parent allows a 4-second grace period for the child to unwind and execute its `finally` UI cleanup before using hard process termination as a fallback.
+- Export finalization becomes non-cancellable once scanning has completed so a late stop-key press cannot leave a partially finalized scan.
+
+## OCR review artifacts and confidence fallback
+
+- Low-confidence OCR can now retry thresholded and inverted preprocessing candidates while retaining the original result when it is better.
+- Candidate recognition stops early when a confident non-empty result is found and otherwise chooses the best lower-confidence result.
+- Failed item OCR crops now have paired JSON review sidecars with scanner name, reason, image fingerprint, OCR text, OCR confidence, OCR profile, token count, owned quantity when known, and explicit privacy flags.
+- The manual-review UI accepts unknown quantities, supports larger quantities, and deletes resolved PNG/JSON review artifacts.
+- Diagnostic capture remains no-click and saves only named scanner ROIs rather than full-screen images.
+
+## Rover variant correctness
+
+- Removed the hard-coded Rover ID 1502 behavior.
+- Added explicit Rover Gender and Rover Element settings using the current Global 3.6 main-role configuration IDs for Female/Male × Spectro/Havoc/Aero/Electro.
+- The legacy behavior remains the default through Female + Spectro = 1502, but users can now select the actual variant before a Resonator scan.
+
+## Additive export and security layer
+
+- Legacy WuWa Tracker export filenames and data shapes remain unchanged.
+- Added separate `scan_metadata.json` with scanner version, scan time, game/resource versions, source revision, language, and source identity.
+- Added `validation_report.json` with selected scanners, per-section counts, and manual-review status.
+- Added optional `account.json`; it is emitted only when there are no pending manual-review items.
+- JSON export is deterministic, UTF-8, and atomic.
+- The export writer recursively rejects credential-like field names such as `oauthCode`, access/refresh tokens, authorization, passwords, and client secrets before any file is written.
+
+## CI correctness coverage
+
+- Added pinned Ruff correctness lint (`E9,F63,F7,F82`) to the fast Windows CI.
+- The lint immediately caught a missing `sys` import in the packaged-runtime smoke entrypoint; the defect was fixed before proceeding.
+- Real Global-data smoke, fresh-install smoke, dependency/import/UI smoke, and packaged executable smoke remain separate from the fast dependency-free unit/lint checks.

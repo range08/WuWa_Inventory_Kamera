@@ -17,6 +17,7 @@ from properties.config import (
 	cfg, alphabethList, maxLength,
 	HELP_URL, FEEDBACK_URL, LANGUAGES
 )
+from scraping.rover import ROVER_ELEMENTS, ROVER_GENDERS
 
 logger = logging.getLogger('SettingInterface')
 
@@ -79,6 +80,22 @@ class SettingInterface(ScrollArea):
 			self.tr('Insert your rover name'),
 			max_length=maxLength,
 			parent=self.inGameGroup
+		)
+		self.roverGender = ComboBoxSettingCard(
+			cfg.roverGender,
+			FIF.FONT_SIZE,
+			self.tr('Rover Gender'),
+			self.tr('Select the Rover variant used by your account'),
+			list(ROVER_GENDERS),
+			self.inGameGroup
+		)
+		self.roverElement = ComboBoxSettingCard(
+			cfg.roverElement,
+			FIF.LANGUAGE,
+			self.tr('Rover Element'),
+			self.tr('Select the Rover element currently shown in the Resonator list'),
+			list(ROVER_ELEMENTS),
+			self.inGameGroup
 		)
 		self.languageGame = ComboBoxSettingCard(
 			cfg.gameLanguage,
@@ -148,6 +165,8 @@ class SettingInterface(ScrollArea):
 		self.personalizationGroup.addSettingCard(self.themeCard)
 		self.personalizationGroup.addSettingCard(self.exportFolderCard)
 		self.inGameGroup.addSettingCard(self.roverName)
+		self.inGameGroup.addSettingCard(self.roverGender)
+		self.inGameGroup.addSettingCard(self.roverElement)
 		self.inGameGroup.addSettingCard(self.languageGame)
 		self.inGameGroup.addSettingCard(self.inventoryKey)
 		self.inGameGroup.addSettingCard(self.resonatorKey)

@@ -3,26 +3,33 @@
 WuWa Inventory Kamera is a tool designed to scan and manage data for the game Wuthering Waves.  
 The data format is specifically designed for [WuWa Tracker](https://wuwatracker.com), facilitating importing data. *(Please note that I am not affiliated with WuWa Tracker.)*
 
-## Supported Features
-*Note: This tool currently works __only__ in full-screen mode.*
+## Modernization status
 
-- **Supported Screens:**
-  - 1680x1050
+This fork is being updated for the current Global client without using memory reading, DLL injection, packet interception, or anti-cheat bypasses. The scanner remains screen-capture/OCR based.
+
+The game-data pipeline has been verified against Wuthering Waves Global 3.6.0 / Resource 3.6.6 using the Korean text source. End-to-end scanner compatibility with the current 3.6 UI is **not claimed yet**; real 1920x1080 screenshots and live scans are still part of the release gate.
+
+## Current scanner constraints
+
+- Windows only.
+- Windows display scaling must currently be **100%**.
+- The Wuthering Waves client area must fill the entire target monitor.
+- Live automation is accepted only for explicit ROI profiles:
   - 1920x1080
-  - 2560x1440
-  - (other resolutions not tested; may not be compatible)
+  - 1680x1050
+- 2560x1440 is not currently accepted because this fork has no explicit validated ROI profile for it.
+- Korean game-data generation is verified. English is used as a text fallback for missing localized entries. OCR behavior for each in-game language still requires live validation.
+- Before scanning Resonators, set **Rover Name**, **Rover Gender**, and **Rover Element** in Settings to match the Rover currently shown in your Resonator list. The scanner no longer assumes a fixed Rover ID.
 
-- **Supported Languages:**
-  - All (tested only with English)
+## Features
 
-- **Features:**
-  - Scan Characters
-  - Scan Weapons
-  - Scan Echoes
-  - Scan Development Items
-  - Scan Resources
-  - Scan Achievements
-  - Edit/View inventory data
+- Scan Characters
+- Scan Weapons
+- Scan Echoes
+- Scan Development Items
+- Scan Resources
+- Scan Achievements
+- Edit/View inventory data
 
 ## To-Do List
 - [x] Character Scanner (no echo)
@@ -37,21 +44,119 @@ The data format is specifically designed for [WuWa Tracker](https://wuwatracker.
 - [x] Optimize releases size
 - [ ] Rewrite the code (after all tasks are complete)
 
+## Development / local run
+
+Python 3.12, 3.13, and 3.14 have passed the Windows runtime dependency/import smoke test. The current cx_Freeze build is verified with Python 3.14.
+
+PowerShell:
+
+```powershell
+py -3.14 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m tools.update_game_data --language ko --ref 3.6
+python main.py
+```
+
+English game data:
+
+```powershell
+python -m tools.update_game_data --language en --ref 3.6
+```
+
+Offline reuse of the last validated source cache:
+
+```powershell
+python -m tools.update_game_data --language ko --ref 3.6 --offline
+```
+
+Build the Windows executable:
+
+```powershell
+python setup.py build
+```
+
+### No-click ROI diagnostics
+
+For current-game calibration, manually open the requested game screen and capture only the scanner regions. The diagnostic command does not click, type, or save a full-screen screenshot.
+
+Examples:
+
+```powershell
+python -m tools.capture_diagnostics inventory-weapons
+python -m tools.capture_diagnostics inventory-echoes
+python -m tools.capture_diagnostics inventory-items
+python -m tools.capture_diagnostics resonator-overview
+python -m tools.capture_diagnostics resonator-weapon
+python -m tools.capture_diagnostics resonator-skills
+python -m tools.capture_diagnostics resonator-chain
+python -m tools.capture_diagnostics achievements
+python -m tools.capture_diagnostics shell-credit
+python -m tools.capture_diagnostics main-menu
+```
+
+Each run creates a timestamped directory under `logs/diagnostics/` containing only named ROI PNG files plus `manifest.json` with resolution, DPI, bounds, and any layout warning. Review captures before sharing them.
+
+For calibration without saving any pixels at all, show a temporary live overlay:
+
+```powershell
+python -m tools.roi_overlay inventory-weapons
+python -m tools.roi_overlay inventory-echoes --seconds 20
+python -m tools.roi_overlay resonator-overview
+```
+
+The overlay is click-through, stays on top briefly, and exits automatically. It currently requires 100% Windows display scaling so its physical-pixel coordinates match the scanner ROIs.
+
+The updater records the exact upstream revision, game/resource versions, file hashes, and generated mapping hashes. Raw upstream game-data files stay in the ignored local cache and are not vendored into this repository.
+
+## OCR troubleshooting
+
+If scanning is rejected before input starts, first check the layout requirements: Windows display scaling must currently be 100%, the game client area must fill the target monitor, and the resolution must have an explicit ROI profile.
+
+If OCR fails or a result is sent to manual review:
+
+1. Confirm the in-game language matches the selected language in Settings.
+2. Regenerate the current mapping data, for example `python -m tools.update_game_data --language ko`.
+3. Use the no-click diagnostic command for the affected screen and inspect only the generated ROI crops.
+4. Check `logs/WuWaInventoryKamera.debug.log` for the field that failed.
+5. For item-review failures, inspect the paired PNG and JSON sidecar under `logs/fail/<scan-time>/`; the sidecar records OCR text/confidence and the failure reason.
+6. Do not share full-screen captures or any crop containing a UID/account identifier.
+
+OCR failures are intentionally surfaced rather than converted into guessed level, quantity, weapon, Echo, or character values.
+
 ## Tutorial
 
-1. **Prepare for Scanning**
-   - Ensure you are in the correct menu before clicking on 'Start Scanning'. This is crucial for accurate data capture.  
-   ![menu](https://telegra.ph/file/12abde4d5ffdfb68c0142.png)
+1. **Prepare the game**
+   - Use 100% Windows display scaling.
+   - Start with an explicit supported ROI resolution (1920x1080 is the live-validation target).
+   - Make the Wuthering Waves client area fill the target monitor.
+   - Open the in-game main/menu state expected by the scanner.
+   - If scanning Resonators, set Rover Name, Gender, and Element correctly in Settings.
 
-2. **Complete the Scanning Process**
-   - Once scanning is complete, open WuWa Inventory Kamera. You should see something similar to the image below:  
-   ![complete](https://telegra.ph/file/a50eba86bcb813e82b919.png)
+2. **Check alignment before automated input**
+   - Use `python -m tools.roi_overlay <screen>` to inspect ROI placement without saving pixels.
+   - Or use `python -m tools.capture_diagnostics <screen>` to create narrow local ROI crops for debugging.
+   - If the scanner reports an unsupported layout, do not bypass the guard by changing coordinates blindly.
 
-3. **(Optional) Review Scanned Data**
-   - You can optionally check the data that has been scanned to ensure everything is captured correctly:  
-   ![review](https://telegra.ph/file/f6c6f2790eb23aa7ce3b5.png)
+3. **Run only the required scanners**
+   - Select Characters, Weapons, Echoes, Development Items, and/or Resources.
+   - Achievements remains mutually exclusive with the other scanner set in the UI.
+   - Press Start Scanning and leave the game in the foreground.
+   - Press Enter or move focus away from the game to request cooperative cancellation.
+
+4. **Review the result**
+   - A clean scan produces the legacy WuWa Tracker files plus `scan_metadata.json`, `validation_report.json`, and `account.json`.
+   - Unknown/low-confidence item, weapon, or Echo entries are not silently guessed. They are saved as narrow local review artifacts under `logs/fail/<scan-time>/`.
+   - When review items remain, `account.json` is intentionally not emitted as a complete account snapshot.
 
 ## Data
+
+Legacy WuWa Tracker-compatible export files keep their existing shapes and filenames. This fork additionally writes:
+
+- `scan_metadata.json`: scanner version, scan time, game/resource version, language, upstream revision, and source identity.
+- `validation_report.json`: selected scanners, per-section counts, and whether manual review is still required.
+- `account.json`: a single aggregate of metadata plus inventory/characters/weapons/echoes/achievements. It is created only when the scan has no pending manual-review item, so it is never presented as complete while an OCR failure is unresolved.
 
 <details>
   <summary>inventory.json</summary>
@@ -69,12 +174,12 @@ The data format is specifically designed for [WuWa Tracker](https://wuwatracker.
 
   ```json
   {
-    "_comment": "resonatorID(1205): string(int), if not the OCR failed and you will see a flatcase name of that",
+    "_comment": "resonatorID: numeric game-data ID serialized as a JSON object key",
     "1205": {
       "level": 90,
       "ascension": 6,
       "weapon": {
-        "_comment": "weaponID: int, if not the OCR failed and you will see a flatcase name of that",
+        "_comment": "weaponID: numeric game-data ID",
         "id": 21020064,
         "level": 80,
         "ascension": 5,
@@ -105,7 +210,7 @@ The data format is specifically designed for [WuWa Tracker](https://wuwatracker.
   ```json
   [
     {
-      "_comment": "weaponID(21030016): string(int), if not the OCR failed and you will see a flatcase name of that",
+      "_comment": "weaponID: numeric game-data ID serialized as a JSON object key",
       "21030016": {
         "level": 50,
         "ascension": 2,
@@ -176,7 +281,7 @@ The data format is specifically designed for [WuWa Tracker](https://wuwatracker.
 
 ## Credits
 - Highly inspired by [Inventory Kamera](https://github.com/Andrewthe13th/Inventory_Kamera) created by [Andrewthe13th](https://github.com/Andrewthe13th)
-- Item IDs sourced from [Dimbreath](https://github.com/Dimbreath/WutheringData)
+- Original updater/data work referenced [Dimbreath](https://github.com/Dimbreath/WutheringData); the modernization pipeline uses [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) as a local Global-client data input without vendoring its raw data
 - Assets sourced from [Stormy Waves](https://github.com/Stormy-Waves/WW_Icon)
 
 ## License

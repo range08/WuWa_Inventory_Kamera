@@ -1,4 +1,4 @@
-from scraping.utils.common import (
+from scraping.data_store import (
     itemsID, charactersID, weaponsID,
     echoesID, achievementsID, echoStats,
     definedText, sonataName
@@ -6,7 +6,7 @@ from scraping.utils.common import (
 
 from scraping.utils.common import (
     savingScraped, screenshot, convertToBlackWhite,
-    imageToString, copyToClipboard, isUserAdmin
+    imageToString, imageToResult, copyToClipboard
 )
 
 from scraping.utils.mouse_keyboard import WindowsInputController

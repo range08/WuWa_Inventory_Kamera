@@ -1,0 +1,48 @@
+name: Build Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cx-freeze:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt
+
+      - name: Build executable
+        run: python setup.py build
+
+      - name: Verify executable output
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path dist -Filter "WuWa Inventory Kamera.exe" -Recurse | Select-Object -First 1
+          if (-not $exe) {
+            throw "cx_Freeze did not produce WuWa Inventory Kamera.exe"
+          }
+          Write-Host "Built:" $exe.FullName
+
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Packaged executable smoke test failed with exit code $($process.ExitCode)"
+          }
+          Write-Host "Packaged executable startup: ok"

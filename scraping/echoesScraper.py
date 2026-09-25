@@ -1,19 +1,39 @@
 import os
+import hashlib
+from pathlib import Path
+
 import cv2
-import string
+import logging
 import numpy as np
-from difflib import get_close_matches as getMatches
 from collections import defaultdict
 
 from scraping.utils import (
     echoesID, echoStats, sonataName
 )
 from scraping.utils import (
-    screenshot, imageToString, convertToBlackWhite,
+    screenshot, imageToResult, imageToString, convertToBlackWhite,
     WindowsInputController
 )
 from game.screenInfo import ScreenInfo
-from properties.config import cfg
+from properties.config import basePATH, cfg
+from scraping.cancellation import check_cancelled
+from scraping.filters import include_echo
+from scraping.ocr_engine import (
+    LEVEL_PROFILE,
+    STAT_NAME_PROFILE,
+    STAT_VALUE_PROFILE,
+    require_confidence,
+)
+from scraping.matching import ECHO_NAME_CUTOFF, best_match
+from scraping.parsing import ScanParseError, parse_stat_value
+from scraping.retry import retry_call
+from scraping.record_collection import append_distinct_copy
+from scraping.review_queue import (
+    DEFAULT_REVIEW_CONFIDENCE,
+    write_review_metadata,
+)
+
+logger = logging.getLogger('EchoScraper')
 
 # Constants
 ROWS, COLS = 4, 6
@@ -54,20 +74,41 @@ def getRarity(image: np.ndarray):
     for rarity, (lower, upper) in RARITY_BOUNDS.items():
         if np.any(cv2.inRange(image, lower, upper)):
             return rarity
-    return 1
+    return None
 
 def getEchoPages(screenInfo: ScreenInfo) -> int:
-    image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor)[screenInfo.echoes.page.y:screenInfo.echoes.page.y + screenInfo.echoes.page.h, screenInfo.echoes.page.x:screenInfo.echoes.page.x + screenInfo.echoes.page.w]
-    echoCount = imageToString(image, allowedChars=string.digits + '/').split('/')[0]
-    
-    try: return int(echoCount), int(np.ceil(int(echoCount) / 24))
-    except ValueError: return 24, 1
+    def read_count() -> int:
+        image = screenshot(
+            width=screenInfo.width,
+            height=screenInfo.height,
+            monitor=screenInfo.monitor,
+        )[
+            screenInfo.echoes.page.y:
+            screenInfo.echoes.page.y + screenInfo.echoes.page.h,
+            screenInfo.echoes.page.x:
+            screenInfo.echoes.page.x + screenInfo.echoes.page.w,
+        ]
+        echoCountResult = require_confidence(
+            imageToResult(image, profile=LEVEL_PROFILE),
+            field="echo-inventory-count",
+        )
+        echoCountText = echoCountResult.text.split('/')[0]
+
+        try:
+            return int(echoCountText)
+        except ValueError as exc:
+            raise ValueError(
+                f"Unable to parse echo inventory count: {echoCountText!r}"
+            ) from exc
+
+    echoCount = retry_call(read_count, attempts=3, delay_seconds=0.2)
+    return echoCount, int(np.ceil(echoCount / 24))
 
 def processEcho(name: str, level: int, tuneLv: int, sonata: str, rarity: int, stats: dict) -> dict[str, dict[int, int, dict]]:
-    result = getMatches(name, echoesID, 1, 0.9)
-    if result: name = result[0]
-    
-    echoID = str(echoesID.get(name, name))
+    if name not in echoesID:
+        raise ValueError(f"Unknown echo mapping key: {name!r}")
+
+    echoID = str(echoesID[name])
     return {
         echoID: {
             'level': level,
@@ -99,17 +140,30 @@ def processStats(image: np.ndarray, screenInfo: ScreenInfo, _cache: dict) -> dic
     if nameHash in _cache:
         names = _cache[nameHash]
     else:
-        names = imageToString(nameImage, allowedChars=string.ascii_letters).lower().split('\n')
+        namesResult = require_confidence(
+            imageToResult(nameImage, profile=STAT_NAME_PROFILE),
+            field="echo-stat-names",
+        )
+        names = namesResult.text.lower().split('\n')
         names = matchStats(names)
         _cache[nameHash] = names
 
     if valueHash in _cache:
         values = _cache[valueHash]
     else:
-        values = imageToString(valueImage, allowedChars=string.digits + '.%').split()
+        valuesResult = require_confidence(
+            imageToResult(valueImage, profile=STAT_VALUE_PROFILE),
+            field="echo-stat-values",
+        )
+        values = valuesResult.text.split()
         _cache[valueHash] = values
-    tuneLv = max(0, len(values) - 2)
+    if len(names) != len(values) or len(names) < 2:
+        raise ValueError(
+            "Echo stat OCR produced mismatched fields: "
+            f"names={names!r}, values={values!r}"
+        )
 
+    tuneLv = max(0, len(values) - 2)
 
     for index, (statName, statValue) in enumerate(zip(names, values)):
         statName = echoStats.get(statName, statName)
@@ -118,73 +172,185 @@ def processStats(image: np.ndarray, screenInfo: ScreenInfo, _cache: dict) -> dic
         else: stat = 'sub'
         
         try:
-            if statValue.endswith('%'):
-                stats[stat].update({f"{statName}%": float(statValue[:-1])})
-            else:
-                stats[stat].update({statName: int(statValue)})
-        except:
-            stats[stat].update({statName: statValue})
+            value, isPercentage = parse_stat_value(statValue)
+        except ScanParseError as exc:
+            raise ValueError(
+                f"Unable to parse echo stat value {statValue!r} for {statName!r}"
+            ) from exc
+
+        key = f"{statName}%" if isPercentage else statName
+        stats[stat].update({key: value})
 
     return tuneLv, dict(stats)
 
 def getSonata(controller: WindowsInputController, screenInfo: ScreenInfo, _cache: dict):
     controller.moveMouse(screenInfo.echoes.mouseMovement.x, screenInfo.echoes.mouseMovement.y, .2)
     controller.mouseScroll(-screenInfo.scroll.sonata.y, .3)
-    image = screenshot(screenInfo.echoes.sonata.x, screenInfo.echoes.sonata.y, screenInfo.echoes.sonata.w, screenInfo.echoes.sonata.h, monitor=screenInfo.monitor)
-    sonataHash = hash(image.tobytes())
 
-    if sonataHash in _cache:
-        sonata = _cache[sonataHash]
-    else:
-        sonata = imageToString(image, '', bannedChars=' ').lower()
+    try:
+        image = screenshot(
+            screenInfo.echoes.sonata.x,
+            screenInfo.echoes.sonata.y,
+            screenInfo.echoes.sonata.w,
+            screenInfo.echoes.sonata.h,
+            monitor=screenInfo.monitor,
+        )
+        sonataHash = hash(image.tobytes())
+
+        if sonataHash in _cache:
+            return _cache[sonataHash]
+
+        sonataResult = require_confidence(
+            imageToResult(image, '', bannedChars=' '),
+            field="echo-sonata",
+        )
+        ocrText = sonataResult.text.lower()
         for name in sonataName:
-            if name in sonata:
+            if name in ocrText:
                 _cache[sonataHash] = name
-                sonata = name
-                break
-    
-    controller.moveMouse(screenInfo.echoes.mouseMovement.x, screenInfo.echoes.mouseMovement.y, .2)
-    controller.mouseScroll(screenInfo.scroll.sonata.y, .3)
-    return sonata
+                return name
 
-def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, echoes: list, image: np.ndarray, _cache: dict[str, list]) -> tuple[dict[str, int], list[dict[str, dict[str, int]]]]:
+        raise ValueError(
+            f"Unable to identify echo sonata from OCR result: {ocrText!r}"
+        )
+    finally:
+        controller.moveMouse(
+            screenInfo.echoes.mouseMovement.x,
+            screenInfo.echoes.mouseMovement.y,
+            .2,
+        )
+        controller.mouseScroll(screenInfo.scroll.sonata.y, .3)
 
-    echoCard = image[screenInfo.echoes.echoCard.y:screenInfo.echoes.echoCard.y + screenInfo.echoes.echoCard.h, screenInfo.echoes.echoCard.x:screenInfo.echoes.echoCard.x + screenInfo.echoes.echoCard.w]
-    echoHash = hash(echoCard.tobytes())
-    if echoHash in _cache:
-        info = _cache[echoHash]
+def processGridEcho(
+    controller: WindowsInputController,
+    screenInfo: ScreenInfo,
+    echoes: list,
+    reviews: list,
+    review_path: Path,
+    image: np.ndarray,
+    _cache: dict,
+) -> bool:
+
+    echoCard = image[
+        screenInfo.echoes.echoCard.y:
+        screenInfo.echoes.echoCard.y + screenInfo.echoes.echoCard.h,
+        screenInfo.echoes.echoCard.x:
+        screenInfo.echoes.echoCard.x + screenInfo.echoes.echoCard.w,
+    ]
+    echoFingerprint = hashlib.sha256(echoCard.tobytes()).hexdigest()
+    infoKey = ("echo-info", echoFingerprint)
+    resultKey = ("echo-ocr", echoFingerprint)
+
+    if infoKey in _cache:
+        info = _cache[infoKey]
+        echoCardResult = _cache[resultKey]
     else:
-        info = [imageToString(echoCard, '', bannedChars=' +').lower().split('\n')]
-        _cache[echoHash] = info
-    name = info[0][0]
-    
-    if name in echoesID:
-        try:
-            rarity = info[1][0]
-        except:
-            rarity = getRarity(echoCard)
-            _cache[echoHash].append(rarity)
-        
-        if rarity >= cfg.get(cfg.echoMinRarity):
-            levelText = info[0][2]
-            
-            try: level = int(levelText)
-            except ValueError: level = 0
-            level = min(25, level)
+        echoCardResult = imageToResult(
+            echoCard,
+            '',
+            bannedChars=' +',
+        )
+        info = [echoCardResult.text.lower().split('\n')]
+        _cache[infoKey] = info
+        _cache[resultKey] = echoCardResult
 
-            if level >= cfg.get(cfg.echoMinLevel):
-                tuneLv, stats = processStats(image, screenInfo, _cache)
-                sonata = getSonata(controller, screenInfo, _cache)
-                echoes.append(processEcho(name, level, tuneLv, sonata, rarity, stats))
-                return True
-        return False
+    rawName = info[0][0] if info and info[0] else ""
+    result = best_match(rawName, echoesID, cutoff=ECHO_NAME_CUTOFF)
+
+    reviewReasons = []
+    if result is None:
+        reviewReasons.append("unknown_name")
+    if echoCardResult.confidence < DEFAULT_REVIEW_CONFIDENCE:
+        reviewReasons.append("low_confidence")
+
+    if reviewReasons:
+        review_path.mkdir(parents=True, exist_ok=True)
+        stem = f"echo-{echoFingerprint[:16]}"
+        imagePath = review_path / f"{stem}.png"
+        metadataPath = review_path / f"{stem}.json"
+        if not imagePath.exists():
+            if echoCard.size == 0 or not cv2.imwrite(str(imagePath), echoCard):
+                raise OSError(f"Unable to save Echo review crop: {imagePath}")
+
+        write_review_metadata(
+            metadataPath,
+            scanner="echoes",
+            reason="+".join(reviewReasons),
+            fingerprint=echoFingerprint,
+            crop_file=imagePath.name,
+            ocr_result=echoCardResult,
+            owned=None,
+            candidate=result,
+        )
+        reviews.append({
+            "kind": "echo",
+            "image": imagePath,
+            "metadata": metadataPath,
+            "owned": None,
+            "candidate": result,
+            "confidence": echoCardResult.confidence,
+            "reasons": tuple(reviewReasons),
+        })
+        return True
+
+    name = result
+
+    if name in echoesID:
+        if len(info) > 1:
+            rarity = info[1]
+        else:
+            rarity = getRarity(echoCard)
+            if rarity is None:
+                raise ValueError(f"Unable to determine echo rarity for {name!r}")
+            _cache[infoKey].append(rarity)
+
+        if len(info[0]) <= 2:
+            raise ValueError(
+                f"Echo level OCR was incomplete for {name!r}: {info[0]!r}"
+            )
+        levelText = info[0][2]
+
+        try:
+            level = int(levelText)
+        except ValueError as exc:
+            raise ValueError(
+                f"Unable to parse echo level from OCR result: {levelText!r}"
+            ) from exc
+        level = min(25, level)
+
+        if include_echo(
+            rarity=rarity,
+            level=level,
+            min_rarity=cfg.get(cfg.echoMinRarity),
+            min_level=cfg.get(cfg.echoMinLevel),
+        ):
+            tuneLv, stats = processStats(image, screenInfo, _cache)
+            sonata = getSonata(controller, screenInfo, _cache)
+            append_distinct_copy(
+                echoes,
+                processEcho(name, level, tuneLv, sonata, rarity, stats),
+            )
+
+        # Rarity/level filters decide whether this echo is exported; they must
+        # not terminate scanning because later slots may still qualify.
+        return True
 
     return True
 
-def echoScraper(controller: WindowsInputController, x: float, y: float, screenInfo: ScreenInfo) -> tuple[dict[str, int], list[dict[str, dict[str, int]]]]:
+def echoScraper(
+    controller: WindowsInputController,
+    x: float,
+    y: float,
+    screenInfo: ScreenInfo,
+    cancel_event=None,
+    start_date: str = "",
+) -> tuple[list[dict], list[dict]]:
     echoes = list()
+    reviews = list()
     _cache = dict()
+    review_path = basePATH / "logs" / "fail" / start_date
 
+    check_cancelled(cancel_event)
     controller.pressKey(cfg.get(cfg.inventoryKeybind), 2, False)
     controller.leftClick(x, y)
 
@@ -192,24 +358,35 @@ def echoScraper(controller: WindowsInputController, x: float, y: float, screenIn
     continueScraping = False
 
     for page in range(pages):
+        check_cancelled(cancel_event)
         for row in range(ROWS):
             for col in range(COLS):
-                if page == pages - 1 and (page * (ROWS * COLS) + row * COLS + col) > (page * 24) + (echoCount % 24):
+                check_cancelled(cancel_event)
+                global_index = page * (ROWS * COLS) + row * COLS + col
+                if global_index >= echoCount:
                     del _cache
-                    return echoes
+                    return echoes, reviews
                 center_x = screenInfo.echoes.start.x + (col * (screenInfo.echoes.start.w + screenInfo.offsets.page.x)) + screenInfo.echoes.start.w // 2
                 center_y = screenInfo.echoes.start.y + (row * (screenInfo.echoes.start.h + screenInfo.offsets.page.y)) + screenInfo.echoes.start.h // 2
                 
                 controller.leftClick(center_x, center_y)
                 image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor)
                 
-                continueScraping = processGridEcho(controller, screenInfo, echoes, image, _cache)
+                continueScraping = processGridEcho(
+                    controller,
+                    screenInfo,
+                    echoes,
+                    reviews,
+                    review_path,
+                    image,
+                    _cache,
+                )
                 if not continueScraping:
                     del _cache
-                    return echoes
+                    return echoes, reviews
 
         if page < pages - 1 and continueScraping:
             controller.mouseScroll(screenInfo.scroll.page.y, 1.2)
 
     del _cache
-    return echoes
+    return echoes, reviews

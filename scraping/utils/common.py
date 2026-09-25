@@ -1,19 +1,39 @@
-import re
+import logging
 import mss
 import cv2
 import json
-import ctypes
 import numpy as np
 import win32clipboard
 from pathlib import Path
 
-from properties.config import (
-    cfg, INVENTORY, ocr
+from properties.config import cfg, INVENTORY
+from scraping.data_store import (
+    achievementsID,
+    charactersID,
+    definedText,
+    echoStats,
+    echoesID,
+    itemsID,
+    sonataName,
+    weaponsID,
+)
+from scraping.exporter import write_json_atomic
+from scraping.ocr_engine import (
+    OCREngine,
+    OCRError,
+    OCRProfile,
+    OCRResult,
 )
 
-def loadFile(filePATH: str, default = {}) -> dict:
+logger = logging.getLogger('OCR')
+ocrEngine = OCREngine()
+
+def loadFile(filePATH: str, default = None) -> dict | list:
+    if default is None:
+        default = {}
+
     try:
-        with open(filePATH, 'r') as file:
+        with open(filePATH, 'r', encoding='utf-8') as file:
             data = json.load(file)
             if isinstance(default, list):
                 data = list(data)
@@ -21,16 +41,13 @@ def loadFile(filePATH: str, default = {}) -> dict:
     except (FileNotFoundError, json.JSONDecodeError):
         return default
 
-itemsID: dict = loadFile('./data/items.json')
-charactersID: dict = loadFile('./data/characters.json')
-weaponsID: dict = loadFile('./data/weapons.json')
-echoesID: dict = loadFile('./data/echoes.json')
-achievementsID: dict = loadFile('./data/achievements.json')
-echoStats: dict = loadFile('./data/echoStats.json')
-definedText: dict = loadFile('./data/definedText.json')
-sonataName: list = loadFile('./data/sonataName.json', [])
 
-def savingScraped(scannedData: dict = {'inventory_wuwainventorykamera.json': (INVENTORY['items'], dict)}, START_DATE: str = ''):
+def savingScraped(scannedData: dict | None = None, START_DATE: str = ''):
+    if scannedData is None:
+        scannedData = {
+            'inventory_wuwainventorykamera.json': (INVENTORY['items'], dict)
+        }
+
     savePATH: Path = Path(cfg.get(cfg.exportFolder)) / START_DATE
     
     if any(data != emptyType() for data, emptyType in scannedData.values()):
@@ -39,8 +56,7 @@ def savingScraped(scannedData: dict = {'inventory_wuwainventorykamera.json': (IN
         for filename, (data, emptyType) in scannedData.items():
             if data != emptyType():
                 filePATH = savePATH / filename
-                with open(filePATH, 'w', encoding='utf-8') as f:
-                    json.dump(data, f)
+                write_json_atomic(filePATH, data)
 
 def screenshot(left: int = 0, top: int = 0, width: int = 0, height: int = 0, monitor: int = 1, bw: bool = False):
 
@@ -89,58 +105,62 @@ def convertToBlackWhite(image: np.ndarray):
 
     return sharpened
 
-def imageToString(
-    image: np.ndarray, 
-    divisor: str = ' ', 
-    allowedChars: str = None, 
-    bannedChars: str = None
-) -> str:
+def imageToResult(
+    image: np.ndarray,
+    divisor: str = ' ',
+    allowedChars: str = None,
+    bannedChars: str = None,
+    profile: OCRProfile | None = None,
+) -> OCRResult:
+    if profile is None:
+        profile = OCRProfile(
+            name='legacy',
+            divisor=divisor,
+            allowed_chars=allowedChars,
+            banned_chars=bannedChars,
+        )
+
     try:
-        ocrResults = ocr(image)[0]
-        
-        banned_pattern = re.compile(f"[{re.escape(bannedChars)}]") if bannedChars else None
-        allowed_pattern = re.compile(f"[^{re.escape(allowedChars)}]") if allowedChars else None
-        
-        lines = []
-        for bbox, text, _ in ocrResults:
-            if banned_pattern:
-                text = banned_pattern.sub('', text)
-            
-            if allowed_pattern:
-                text = allowed_pattern.sub('', text)
-                
-            lines.append((bbox, text))
+        primary = ocrEngine.recognize(image, profile)
+    except OCRError:
+        logger.debug("Primary OCR attempt failed", exc_info=True)
+        primary = OCRResult.empty(profile.name)
 
-        groupedLines = []
-        currentRow = []
-        lastY = None
+    if primary.text and primary.confidence >= 0.85:
+        return primary
 
-        for bbox, text in lines:
-            yMin = min(point[1] for point in bbox)
-            yMax = max(point[1] for point in bbox)
+    try:
+        processed = convertToBlackWhite(image)
+        retry = ocrEngine.recognize_candidates(
+            [processed, cv2.bitwise_not(processed)],
+            profile,
+            accept_confidence=0.85,
+        )
+    except (OCRError, ValueError, cv2.error):
+        logger.debug("OCR preprocessing fallback failed", exc_info=True)
+        return primary
 
-            if lastY is None or (yMin < lastY + 10):
-                currentRow.append(text)
-            else:
-                groupedLines.append(currentRow)
-                currentRow = [text]
-                
-            lastY = yMax
+    if retry.text and retry.confidence > primary.confidence:
+        return retry
+    return primary
 
-        if currentRow:
-            groupedLines.append(currentRow)
 
-        finalOutput = []
-        for row in groupedLines:
-            finalOutput.append(divisor.join(row))
-        
-        return '\n'.join(finalOutput).strip()
+def imageToString(
+    image: np.ndarray,
+    divisor: str = ' ',
+    allowedChars: str = None,
+    bannedChars: str = None,
+    profile: OCRProfile | None = None,
+) -> str:
+    return imageToResult(
+        image,
+        divisor=divisor,
+        allowedChars=allowedChars,
+        bannedChars=bannedChars,
+        profile=profile,
+    ).text
 
-    except:
-        return ''
 
-def isUserAdmin():
-    return ctypes.windll.shell32.IsUserAnAdmin()
 
 def copyToClipboard(text):
     try:

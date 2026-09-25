@@ -1,26 +1,44 @@
 import logging
-import string
 
 from scraping.utils import (
-	screenshot, imageToString
+    screenshot, imageToResult
 )
 from game.screenInfo import ScreenInfo
+from scraping.ocr_engine import INTEGER_PROFILE, require_confidence
+from scraping.retry import retry_call
 
 logger = logging.getLogger('ShellScraper')
 
+
 def getShell(screenInfo: ScreenInfo):
-	xShell, yShell, wShell, hShell = (
-		screenInfo.shell.x,
-		screenInfo.shell.y,
-		screenInfo.shell.w,
-		screenInfo.shell.h
-	)
+    xShell, yShell, wShell, hShell = (
+        screenInfo.shell.x,
+        screenInfo.shell.y,
+        screenInfo.shell.w,
+        screenInfo.shell.h,
+    )
 
-	image = screenshot(xShell, yShell, wShell, hShell, screenInfo.monitor, True)
+    def read_shell() -> int:
+        image = screenshot(
+            xShell,
+            yShell,
+            wShell,
+            hShell,
+            screenInfo.monitor,
+            True,
+        )
+        shellResult = require_confidence(
+            imageToResult(image, profile=INTEGER_PROFILE),
+            field="shell-credit",
+        )
+        shellText = shellResult.text.strip()
 
-	try: shell = int(imageToString(image, allowedChars=string.digits).strip())
-	except Exception as e:
-		logger.debug(f'Failed to get shells. Error: {e}', exc_info=True)
-		shell = 0
+        try:
+            return int(shellText)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Unable to parse Shell Credit quantity: {shellText!r}"
+            ) from exc
 
-	return {'2': shell}
+    shell = retry_call(read_shell, attempts=3, delay_seconds=0.2)
+    return {'2': shell}
