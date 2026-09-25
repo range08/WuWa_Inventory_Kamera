@@ -118,8 +118,7 @@ def processGridItem(inventory: dict, weapons: list, image: np.ndarray, screenInf
                     rankText = imageToString(rankImage, profile=INTEGER_PROFILE)
                     _cache[rankHash] = rankText
                 weapons.append(processWeapon(name, levelText, rankText))
-                return True
-        return False
+        return True
     return True
 
 def weaponScraper(controller: WindowsInputController, x: float, y: float, screenInfo: ScreenInfo) -> tuple[dict[str, int], list[dict[str, dict[str, int]]]]:
