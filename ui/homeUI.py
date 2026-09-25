@@ -73,6 +73,20 @@ class HomeInterface(QWidget):
 			middle_layout = QVBoxLayout()
 			middle_layout.addStretch(1)
 
+			review = FAILED[0]
+			candidate = review.get('candidate')
+			confidence = review.get('confidence')
+			reasons = review.get('reasons') or ()
+			details = []
+			if candidate:
+				details.append(f"Candidate: {candidate}")
+			if isinstance(confidence, (int, float)):
+				details.append(f"OCR confidence: {confidence:.1%}")
+			if reasons:
+				details.append("Review reason: " + ", ".join(reasons))
+			if details:
+				middle_layout.addWidget(BodyLabel("\n".join(details)))
+
 			owned_layout = QVBoxLayout()
 			owned_label = BodyLabel("Owned")
 			self.owned_spinbox = SpinBox()
