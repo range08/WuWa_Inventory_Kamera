@@ -44,12 +44,12 @@ Design goal: avoid hard-coding the project to 3.6 so that 3.7+ updates are mostl
 - [x] Audit cache reads/writes across the six scanner modules for mismatched keys.
 - [x] Replace bare `except:` blocks across the Python codebase with explicit exception handling/logging.
 - [x] Audit mutable default arguments such as `loadFile(..., default={})`.
-- [ ] Ensure OCR failure cannot silently become a plausible value such as level 1 or quantity 1 without an error marker.
-- [ ] Fix queue/error propagation so a scraper subprocess exception is visible to the UI.
+- [x] Ensure OCR failure cannot silently become a plausible value such as level 1 or quantity 1 without an error marker.
+- [x] Fix queue/error propagation so a scraper subprocess exception is visible to the UI.
 - [ ] Review item-page termination logic for false duplicate detection.
 - [ ] Review off-by-one handling on the final weapon/echo/item page. Weapon and Echo count boundaries are fixed; item termination remains pending.
 - [ ] Confirm every scanner restores the game UI to a predictable state on failure/cancel.
-- [ ] Add a single structured exception boundary around each scraper.
+- [x] Add a single structured exception boundary around each scraper.
 
 ## Phase 2 — Replace obsolete game-data updater
 
@@ -73,11 +73,11 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 - [x] Support Korean (`ko`) explicitly in source/provider/config selection.
 - [ ] Keep English as a fallback when localized text is missing.
 - [x] Validate duplicate normalized names.
-- [ ] Validate missing IDs and malformed records.
+- [x] Validate missing IDs and malformed records.
 - [x] Add `python -m tools.update_game_data` for source sync, validation, and mapping generation.
 - [x] Allow selecting/pinning an upstream branch, tag, or commit with `--ref` / `WUWA_DATA_REF`.
 - [x] Add an offline mode using the last validated local database, including cache/hash validation and no-regeneration reuse.
-- [ ] Fail clearly when the remote schema changes.
+- [x] Fail clearly when the remote schema changes.
 
 ## Phase 3 — Separate generated game data from scanner logic
 
