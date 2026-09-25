@@ -1,4 +1,7 @@
 import os
+import hashlib
+from pathlib import Path
+
 import cv2
 import logging
 import numpy as np
@@ -12,7 +15,7 @@ from scraping.utils import (
     WindowsInputController
 )
 from game.screenInfo import ScreenInfo
-from properties.config import cfg
+from properties.config import basePATH, cfg
 from scraping.cancellation import check_cancelled
 from scraping.ocr_engine import (
     LEVEL_PROFILE,
@@ -23,6 +26,10 @@ from scraping.ocr_engine import (
 from scraping.matching import ECHO_NAME_CUTOFF, best_match
 from scraping.parsing import ScanParseError, parse_stat_value
 from scraping.retry import retry_call
+from scraping.review_queue import (
+    DEFAULT_REVIEW_CONFIDENCE,
+    write_review_metadata,
+)
 
 logger = logging.getLogger('EchoScraper')
 
@@ -203,25 +210,78 @@ def getSonata(controller: WindowsInputController, screenInfo: ScreenInfo, _cache
         )
         controller.mouseScroll(screenInfo.scroll.sonata.y, .3)
 
-def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, echoes: list, image: np.ndarray, _cache: dict[str, list]) -> tuple[dict[str, int], list[dict[str, dict[str, int]]]]:
+def processGridEcho(
+    controller: WindowsInputController,
+    screenInfo: ScreenInfo,
+    echoes: list,
+    reviews: list,
+    review_path: Path,
+    image: np.ndarray,
+    _cache: dict,
+) -> bool:
 
-    echoCard = image[screenInfo.echoes.echoCard.y:screenInfo.echoes.echoCard.y + screenInfo.echoes.echoCard.h, screenInfo.echoes.echoCard.x:screenInfo.echoes.echoCard.x + screenInfo.echoes.echoCard.w]
-    echoHash = hash(echoCard.tobytes())
-    if echoHash in _cache:
-        info = _cache[echoHash]
+    echoCard = image[
+        screenInfo.echoes.echoCard.y:
+        screenInfo.echoes.echoCard.y + screenInfo.echoes.echoCard.h,
+        screenInfo.echoes.echoCard.x:
+        screenInfo.echoes.echoCard.x + screenInfo.echoes.echoCard.w,
+    ]
+    echoFingerprint = hashlib.sha256(echoCard.tobytes()).hexdigest()
+    infoKey = ("echo-info", echoFingerprint)
+    resultKey = ("echo-ocr", echoFingerprint)
+
+    if infoKey in _cache:
+        info = _cache[infoKey]
+        echoCardResult = _cache[resultKey]
     else:
-        echoCardResult = require_confidence(
-            imageToResult(echoCard, '', bannedChars=' +'),
-            field="echo-card",
+        echoCardResult = imageToResult(
+            echoCard,
+            '',
+            bannedChars=' +',
         )
         info = [echoCardResult.text.lower().split('\n')]
-        _cache[echoHash] = info
-    name = info[0][0]
-    result = best_match(name, echoesID, cutoff=ECHO_NAME_CUTOFF)
+        _cache[infoKey] = info
+        _cache[resultKey] = echoCardResult
+
+    rawName = info[0][0] if info and info[0] else ""
+    result = best_match(rawName, echoesID, cutoff=ECHO_NAME_CUTOFF)
+
+    reviewReasons = []
     if result is None:
-        raise ValueError(
-            f"Unable to identify echo from OCR result: {name!r}"
+        reviewReasons.append("unknown_name")
+    if echoCardResult.confidence < DEFAULT_REVIEW_CONFIDENCE:
+        reviewReasons.append("low_confidence")
+
+    if reviewReasons:
+        review_path.mkdir(parents=True, exist_ok=True)
+        stem = f"echo-{echoFingerprint[:16]}"
+        imagePath = review_path / f"{stem}.png"
+        metadataPath = review_path / f"{stem}.json"
+        if not imagePath.exists():
+            if echoCard.size == 0 or not cv2.imwrite(str(imagePath), echoCard):
+                raise OSError(f"Unable to save Echo review crop: {imagePath}")
+
+        write_review_metadata(
+            metadataPath,
+            scanner="echoes",
+            reason="+".join(reviewReasons),
+            fingerprint=echoFingerprint,
+            crop_file=imagePath.name,
+            ocr_result=echoCardResult,
+            owned=None,
+            candidate=result,
         )
+        reviews.append({
+            "kind": "echo",
+            "image": imagePath,
+            "metadata": metadataPath,
+            "owned": None,
+            "candidate": result,
+            "confidence": echoCardResult.confidence,
+            "reasons": tuple(reviewReasons),
+        })
+        return True
+
     name = result
 
     if name in echoesID:
@@ -231,7 +291,7 @@ def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, 
             rarity = getRarity(echoCard)
             if rarity is None:
                 raise ValueError(f"Unable to determine echo rarity for {name!r}")
-            _cache[echoHash].append(rarity)
+            _cache[infoKey].append(rarity)
 
         if rarity >= cfg.get(cfg.echoMinRarity):
             if len(info[0]) <= 2:
@@ -259,9 +319,18 @@ def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, 
 
     return True
 
-def echoScraper(controller: WindowsInputController, x: float, y: float, screenInfo: ScreenInfo, cancel_event=None) -> tuple[dict[str, int], list[dict[str, dict[str, int]]]]:
+def echoScraper(
+    controller: WindowsInputController,
+    x: float,
+    y: float,
+    screenInfo: ScreenInfo,
+    cancel_event=None,
+    start_date: str = "",
+) -> tuple[list[dict], list[dict]]:
     echoes = list()
+    reviews = list()
     _cache = dict()
+    review_path = basePATH / "logs" / "fail" / start_date
 
     check_cancelled(cancel_event)
     controller.pressKey(cfg.get(cfg.inventoryKeybind), 2, False)
@@ -278,17 +347,25 @@ def echoScraper(controller: WindowsInputController, x: float, y: float, screenIn
                 global_index = page * (ROWS * COLS) + row * COLS + col
                 if global_index >= echoCount:
                     del _cache
-                    return echoes
+                    return echoes, reviews
                 center_x = screenInfo.echoes.start.x + (col * (screenInfo.echoes.start.w + screenInfo.offsets.page.x)) + screenInfo.echoes.start.w // 2
                 center_y = screenInfo.echoes.start.y + (row * (screenInfo.echoes.start.h + screenInfo.offsets.page.y)) + screenInfo.echoes.start.h // 2
                 
                 controller.leftClick(center_x, center_y)
                 image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor)
                 
-                continueScraping = processGridEcho(controller, screenInfo, echoes, image, _cache)
+                continueScraping = processGridEcho(
+                    controller,
+                    screenInfo,
+                    echoes,
+                    reviews,
+                    review_path,
+                    image,
+                    _cache,
+                )
                 if not continueScraping:
                     del _cache
-                    return echoes
+                    return echoes, reviews
 
         if page < pages - 1 and continueScraping:
             controller.mouseScroll(screenInfo.scroll.page.y, 1.2)
