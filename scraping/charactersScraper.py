@@ -27,6 +27,7 @@ from scraping.parsing import (
     ascension_from_level_cap,
     parse_level_pair,
 )
+from scraping.rover import resolve_rover_id
 
 logger = logging.getLogger('CharacterScraper')
 
@@ -61,7 +62,10 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
 
         roverName = cfg.get(cfg.roverName).replace(' ', '').lower()
         if resonatorName == roverName:
-            resonatorID = '1502'
+            resonatorID = resolve_rover_id(
+                cfg.get(cfg.roverGender),
+                cfg.get(cfg.roverElement),
+            )
         elif resonatorName in charactersID:
             resonatorID = charactersID[resonatorName]
         else:
