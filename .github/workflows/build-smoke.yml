@@ -49,3 +49,9 @@ jobs:
             throw "cx_Freeze did not produce WuWa Inventory Kamera.exe"
           }
           Write-Host "Built:" $exe.FullName
+
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Packaged executable smoke test failed with exit code $($process.ExitCode)"
+          }
+          Write-Host "Packaged executable startup: ok"
