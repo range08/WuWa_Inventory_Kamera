@@ -16,6 +16,7 @@ from qfluentwidgets import (
 
 from ui.custom_widgets.widget import MultiplePushSettingCard
 from properties.config import cfg, basePATH
+from scraping.exporter import write_json_atomic
 from scraping.utils.common import itemsID
 
 logger = logging.getLogger('InventoryInterface')
@@ -171,8 +172,7 @@ class InventoryInterface(ScrollArea):
 					if item_id is not None:
 						inventory_data[item_id] = quantity
 			
-			with open(file_path, 'w', encoding='utf-8') as file:
-				json.dump(inventory_data, file, ensure_ascii=False, indent=4)
+			write_json_atomic(file_path, inventory_data)
 
 	def __populateGrid(self, inventory_file):
 		"""Populate the grid layout with ItemCard widgets based on the inventory data."""
