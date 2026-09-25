@@ -9,6 +9,7 @@ from scraping.utils import (
 )
 from game.screenInfo import ScreenInfo
 from properties.config import cfg
+from scraping.ocr_engine import INTEGER_PROFILE, LEVEL_PROFILE, NAME_PROFILE
 
 # Constants
 ROWS, COLS = 4, 6
@@ -57,7 +58,7 @@ def processGridItem(inventory: dict, weapons: list, image: np.ndarray, screenInf
     if nameHash in _cache:
         name = _cache[nameHash]
     else:
-        name = imageToString(nameImage, '', bannedChars=' ').lower()
+        name = imageToString(nameImage, profile=NAME_PROFILE).lower()
         result = getMatches(name, weaponsID, 1, 0.9)
         if not result:
             result = getMatches(name, itemsID, 1, 0.9)
@@ -75,7 +76,7 @@ def processGridItem(inventory: dict, weapons: list, image: np.ndarray, screenInf
         if valueHash in _cache:
             valueText = _cache[valueHash]
         else:
-            valueText = imageToString(valueImage, '', allowedChars=string.digits)
+            valueText = imageToString(valueImage, profile=INTEGER_PROFILE)
             _cache[valueHash] = valueText
         
         itemID, value = processItem(name, valueText)
@@ -90,7 +91,7 @@ def processGridItem(inventory: dict, weapons: list, image: np.ndarray, screenInf
             if levelHash in _cache:
                 levelText = _cache[levelHash]
             else:
-                levelText = imageToString(levelImage, '', allowedChars=string.digits + '/')
+                levelText = imageToString(levelImage, profile=LEVEL_PROFILE)
                 _cache[levelHash] = levelText
             
             if int(levelText.split('/')[0]) >= cfg.get(cfg.weaponsMinLevel):
@@ -101,7 +102,7 @@ def processGridItem(inventory: dict, weapons: list, image: np.ndarray, screenInf
                 if rankHash in _cache:
                     rankText = _cache[rankHash]
                 else:
-                    rankText = imageToString(rankImage, '', allowedChars=string.digits)
+                    rankText = imageToString(rankImage, profile=INTEGER_PROFILE)
                     _cache[rankHash] = rankText
                 weapons.append(processWeapon(name, levelText, rankText))
                 return True
