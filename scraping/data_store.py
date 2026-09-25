@@ -9,11 +9,21 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict, cast
 
 
 class GameDataStoreError(ValueError):
     """Raised when generated scanner mappings cannot be loaded safely."""
+
+
+class ItemRecord(TypedDict):
+    id: int
+    name: str
+    image: str
+
+
+class WeaponRecord(ItemRecord):
+    rarity: int
 
 
 class GeneratedDataStore:
@@ -52,6 +62,7 @@ class GeneratedDataStore:
                 raise GameDataStoreError(
                     f"Generated mapping must be a JSON object: {filename}"
                 )
+            self._validate_dict_mapping(attribute, filename, payload)
             loaded_dicts[attribute] = payload
 
         for attribute, filename in self.LIST_FILES.items():
@@ -60,6 +71,7 @@ class GeneratedDataStore:
                 raise GameDataStoreError(
                     f"Generated mapping must be a JSON array: {filename}"
                 )
+            self._validate_list_mapping(attribute, filename, payload)
             loaded_lists[attribute] = payload
 
         counts: dict[str, int] = {}
@@ -76,6 +88,83 @@ class GeneratedDataStore:
             counts[self.LIST_FILES[attribute]] = len(payload)
 
         return counts
+
+    @staticmethod
+    def _validate_dict_mapping(
+        attribute: str,
+        filename: str,
+        payload: dict,
+    ) -> None:
+        if attribute in {"characters", "echoes", "achievements"}:
+            if not all(
+                isinstance(key, str)
+                and key
+                and isinstance(value, int)
+                and not isinstance(value, bool)
+                for key, value in payload.items()
+            ):
+                raise GameDataStoreError(
+                    f"Generated ID mapping contains invalid entries: {filename}"
+                )
+            return
+
+        if attribute in {"echo_stats", "defined_text"}:
+            if not all(
+                isinstance(key, str)
+                and key
+                and isinstance(value, str)
+                and value
+                for key, value in payload.items()
+            ):
+                raise GameDataStoreError(
+                    f"Generated text mapping contains invalid entries: {filename}"
+                )
+            return
+
+        if attribute in {"items", "weapons"}:
+            for key, value in payload.items():
+                if not isinstance(key, str) or not key or not isinstance(value, dict):
+                    raise GameDataStoreError(
+                        f"Generated record mapping contains invalid entries: {filename}"
+                    )
+                required = {
+                    "id": int,
+                    "name": str,
+                    "image": str,
+                }
+                if attribute == "weapons":
+                    required["rarity"] = int
+
+                for field, expected_type in required.items():
+                    field_value = value.get(field)
+                    if (
+                        not isinstance(field_value, expected_type)
+                        or isinstance(field_value, bool)
+                    ):
+                        raise GameDataStoreError(
+                            f"Generated {filename} entry {key!r} has "
+                            f"invalid {field!r}."
+                        )
+                if attribute == "weapons" and not 1 <= value["rarity"] <= 5:
+                    raise GameDataStoreError(
+                        f"Generated {filename} entry {key!r} has invalid rarity."
+                    )
+            return
+
+        raise GameDataStoreError(f"Unknown generated mapping: {filename}")
+
+    @staticmethod
+    def _validate_list_mapping(
+        attribute: str,
+        filename: str,
+        payload: list,
+    ) -> None:
+        if attribute != "sonata_names":
+            raise GameDataStoreError(f"Unknown generated mapping: {filename}")
+        if not all(isinstance(value, str) and value for value in payload):
+            raise GameDataStoreError(
+                f"Generated list mapping contains invalid entries: {filename}"
+            )
 
     @staticmethod
     def _load_json(path: Path) -> Any:
@@ -107,3 +196,33 @@ sonataName = STORE.sonata_names
 
 def reload_generated_mappings(data_dir: Path | str) -> dict[str, int]:
     return STORE.reload(data_dir)
+
+
+def get_item(normalized_name: str) -> ItemRecord | None:
+    value = itemsID.get(normalized_name)
+    return cast(ItemRecord, value) if value is not None else None
+
+
+def get_weapon(normalized_name: str) -> WeaponRecord | None:
+    value = weaponsID.get(normalized_name)
+    return cast(WeaponRecord, value) if value is not None else None
+
+
+def get_character_id(normalized_name: str) -> int | None:
+    return charactersID.get(normalized_name)
+
+
+def get_echo_id(normalized_name: str) -> int | None:
+    return echoesID.get(normalized_name)
+
+
+def get_achievement_id(display_name: str) -> int | None:
+    return achievementsID.get(display_name)
+
+
+def find_item_by_id(item_id: int) -> ItemRecord | None:
+    for value in itemsID.values():
+        record = cast(ItemRecord, value)
+        if record["id"] == item_id:
+            return record
+    return None
