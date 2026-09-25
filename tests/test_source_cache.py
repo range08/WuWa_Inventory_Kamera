@@ -145,6 +145,49 @@ class SourceCacheTests(unittest.TestCase):
             self.assertEqual(cache.latest_valid(provider, "ko"), ko_manifest)
             self.assertEqual(cache.latest_valid(provider, "en"), en_manifest)
 
+    def test_validation_rejects_unsafe_manifest_path(self):
+        provider, _, payloads = self.make_fixture()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = SourceCache(tmp, FakeFetcher(payloads))
+            manifest_path = cache.sync(provider, "ko")
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+            payload = b"outside"
+            outside = manifest_path.parent.parent / "outside.json"
+            outside.write_bytes(payload)
+            manifest["files"] = {
+                "../outside.json": {
+                    "sha256": hashlib.sha256(payload).hexdigest(),
+                    "size": len(payload),
+                }
+            }
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(SourceCacheError, "unsafe file path"):
+                cache.validate(manifest_path)
+
+    def test_latest_valid_rejects_cache_missing_required_inputs(self):
+        provider, _, payloads = self.make_fixture()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = SourceCache(tmp, FakeFetcher(payloads))
+            manifest_path = cache.sync(provider, "ko")
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+            required = provider.required_paths("ko")
+            missing = next(
+                path
+                for path in required
+                if path.startswith("Textmaps/en/")
+            )
+            manifest["files"].pop(missing)
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            self.assertEqual(cache.validate(manifest_path)["language"], "ko")
+            with self.assertRaises(SourceCacheError):
+                cache.latest_valid(provider, "ko")
+
 
 if __name__ == "__main__":
     unittest.main()
