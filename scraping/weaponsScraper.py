@@ -13,7 +13,12 @@ from game.screenInfo import ScreenInfo
 from properties.config import basePATH, cfg
 from scraping.cancellation import check_cancelled
 from scraping.filters import include_weapon
-from scraping.ocr_engine import INTEGER_PROFILE, LEVEL_PROFILE, NAME_PROFILE
+from scraping.ocr_engine import (
+    INTEGER_PROFILE,
+    LEVEL_PROFILE,
+    NAME_PROFILE,
+    require_confidence,
+)
 from scraping.matching import (
     ITEM_NAME_CUTOFF,
     WEAPON_INVENTORY_NAME_CUTOFF,
@@ -104,10 +109,11 @@ def getWeaponPages(screenInfo: ScreenInfo) -> int:
             screenInfo.weapons.page.x + screenInfo.weapons.page.w,
         ]
         image = convertToBlackWhite(image)
-        weaponCountText = imageToString(
-            image,
-            profile=LEVEL_PROFILE,
-        ).split('/')[0]
+        weaponCountResult = require_confidence(
+            imageToResult(image, profile=LEVEL_PROFILE),
+            field="weapon-inventory-count",
+        )
+        weaponCountText = weaponCountResult.text.split('/')[0]
         try:
             return int(weaponCountText)
         except ValueError as exc:
