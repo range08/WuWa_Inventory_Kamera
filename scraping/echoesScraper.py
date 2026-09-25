@@ -1,7 +1,6 @@
 import os
 import cv2
 import logging
-import string
 import numpy as np
 from difflib import get_close_matches as getMatches
 from collections import defaultdict
@@ -67,7 +66,7 @@ def getRarity(image: np.ndarray):
 def getEchoPages(screenInfo: ScreenInfo) -> int:
     image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor)[screenInfo.echoes.page.y:screenInfo.echoes.page.y + screenInfo.echoes.page.h, screenInfo.echoes.page.x:screenInfo.echoes.page.x + screenInfo.echoes.page.w]
     echoCountText = imageToString(
-        image, allowedChars=string.digits + '/'
+        image, profile=LEVEL_PROFILE
     ).split('/')[0]
 
     try:
