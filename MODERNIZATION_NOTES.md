@@ -140,3 +140,32 @@ Weapon and Echo final-page boundaries were also corrected to stop at `global_ind
 - Scanning now ends only after a complete seven-slot viewport contains no unseen resonator.
 - Removed the reverse-order last-page recovery pass, which is no longer needed with viewport-level termination.
 - Added a bounded 128-viewport guard to fail closed if the UI never reaches a stable end state.
+
+
+## Verified Global 3.6 Korean game-data smoke
+
+GitHub Actions run `36111955248` completed successfully on Windows against the real `Arikatsu/WutheringWaves_Data` 3.6 source.
+
+Verified source identity:
+- game version: 3.6.0
+- resource version: 3.6.6
+- revision: `353f2eaed119bc9f680eab92807d20ac75a79b40`
+- language: `ko`
+
+Generated mapping counts:
+- characters: 54
+- weapons: 122
+- items: 1776
+- echoes: 220
+- achievements: 1195
+
+The same workflow then ran the updater in explicit offline mode and reported `regenerated: false`, confirming validated source-cache and generated-mapping reuse.
+
+## Runtime dependency modernization
+
+- Replaced the retiring `rapidocr-onnxruntime` package with unified `rapidocr==3.9.2` plus `onnxruntime==1.30.0`.
+- Extended the OCR adapter to accept modern `RapidOCROutput` objects with parallel `boxes`, `txts`, and `scores` fields while retaining legacy result-envelope compatibility.
+- Added dependency-free tests for modern output adaptation and NumPy-like box arrays.
+- Pinned `pywin32==312`.
+- Added a Windows dependency smoke matrix for Python 3.12, 3.13, and 3.14.
+- Added `version.py` as the single application version source used by cx_Freeze package metadata and output paths.
