@@ -144,10 +144,10 @@ def scrapeSkills(controller: WindowsInputController, screenInfo: ScreenInfo, cha
             buttonHash = hash(buttonImage.tobytes())
 
             if buttonHash in _cache:
-                button = _cache[button]
+                button = _cache[buttonHash]
             else:
                 button = imageToString(buttonImage).lower()
-                _cache[button] = button
+                _cache[buttonHash] = button
 
             if button.lower() == definedText['PrefabTextItem_3963945691_Text']: # MULTILANG
                 key = 'inherent' if index == 2 else f'stats{index}'
