@@ -54,6 +54,8 @@ def _applyScraperMessage(message):
 def managerStart(scraperEnabled: list):
     global INVENTORY, FAILED
     INVENTORY['date'] = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    INVENTORY['items'].clear()
+    FAILED.clear()
 
     gameManager = WindowManager()
     result = MainMenuController().isInMainMenu()
