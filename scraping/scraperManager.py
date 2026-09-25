@@ -58,7 +58,11 @@ def managerStart(scraperEnabled: list):
     FAILED.clear()
 
     gameManager = WindowManager()
-    result = MainMenuController().isInMainMenu()
+    layoutError = gameManager.getScannerLayoutError()
+    if layoutError:
+        result = ('error', 'Unsupported scanner layout', layoutError)
+    else:
+        result = MainMenuController().isInMainMenu()
 
     if result[0] != 'error':
         time.sleep(1.2)
