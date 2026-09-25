@@ -298,10 +298,10 @@ def weaponScraper(
                 )
                 if not continueScraping:
                     del _cache
-                    return inventory, weapons
+                    return inventory, weapons, reviews
 
         if page < pages - 1 and continueScraping:
             controller.mouseScroll(screenInfo.scroll.page.y, 1.2)
 
     del _cache
-    return inventory, weapons
+    return inventory, weapons, reviews
