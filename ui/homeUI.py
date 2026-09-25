@@ -74,6 +74,7 @@ class HomeInterface(QWidget):
 			middle_layout.addStretch(1)
 
 			review = FAILED[0]
+			review_kind = review.get('kind', 'item')
 			candidate = review.get('candidate')
 			confidence = review.get('confidence')
 			reasons = review.get('reasons') or ()
@@ -87,43 +88,58 @@ class HomeInterface(QWidget):
 			if details:
 				middle_layout.addWidget(BodyLabel("\n".join(details)))
 
-			owned_layout = QVBoxLayout()
-			owned_label = BodyLabel("Owned")
-			self.owned_spinbox = SpinBox()
-			self.owned_spinbox.setRange(0, 999999999)
-			self.owned_spinbox.setSpecialValueText("Unknown")
-			owned = FAILED[0].get('owned')
-			self.owned_spinbox.setValue(
-				owned if isinstance(owned, int) and owned >= 0 else 0
-			)
-			owned_layout.addWidget(owned_label)
-			owned_layout.addWidget(self.owned_spinbox)
-			middle_layout.addLayout(owned_layout)
-
 			skip_button = PushButton("Skip")
-			change_button = PushButton("Update")
 			skip_button.clicked.connect(self.onSkipButtonClicked)
-			change_button.clicked.connect(self.onChangeButtonClicked)
-			middle_layout.addWidget(skip_button)
-			middle_layout.addWidget(change_button)
-			middle_layout.addStretch(1)
-			mainLayout.addLayout(middle_layout)
 
-			right_layout = QVBoxLayout()
-			self.search_bar = LineEdit()
-			self.search_bar.setPlaceholderText("Search...")
-			self.search_bar.textChanged.connect(self.filter_list)
+			if review_kind == 'item':
+				owned_layout = QVBoxLayout()
+				owned_label = BodyLabel("Owned")
+				self.owned_spinbox = SpinBox()
+				self.owned_spinbox.setRange(0, 999999999)
+				self.owned_spinbox.setSpecialValueText("Unknown")
+				owned = review.get('owned')
+				self.owned_spinbox.setValue(
+					owned if isinstance(owned, int) and owned >= 0 else 0
+				)
+				owned_layout.addWidget(owned_label)
+				owned_layout.addWidget(self.owned_spinbox)
+				middle_layout.addLayout(owned_layout)
 
-			self.list_widget = ListWidget()
-			self.list_widget.addItems([itemsID[item]['name'] for item in sorted(itemsID)])
+				change_button = PushButton("Update")
+				change_button.clicked.connect(self.onChangeButtonClicked)
+				middle_layout.addWidget(skip_button)
+				middle_layout.addWidget(change_button)
+				middle_layout.addStretch(1)
+				mainLayout.addLayout(middle_layout)
 
-			right_layout.addWidget(self.search_bar)
-			right_layout.addWidget(self.list_widget)
+				right_layout = QVBoxLayout()
+				self.search_bar = LineEdit()
+				self.search_bar.setPlaceholderText("Search...")
+				self.search_bar.textChanged.connect(self.filter_list)
 
-			mainLayout.addLayout(right_layout)
-			mainLayout.setStretch(0, 1)
-			mainLayout.setStretch(1, 1)
-			mainLayout.setStretch(2, 3)
+				self.list_widget = ListWidget()
+				self.list_widget.addItems([
+					itemsID[item]['name'] for item in sorted(itemsID)
+				])
+
+				right_layout.addWidget(self.search_bar)
+				right_layout.addWidget(self.list_widget)
+				mainLayout.addLayout(right_layout)
+				mainLayout.setStretch(0, 1)
+				mainLayout.setStretch(1, 1)
+				mainLayout.setStretch(2, 3)
+			else:
+				middle_layout.addWidget(
+					BodyLabel(
+						"Weapon entry preserved for review. "
+						"Direct weapon editing is not enabled yet."
+					)
+				)
+				middle_layout.addWidget(skip_button)
+				middle_layout.addStretch(1)
+				mainLayout.addLayout(middle_layout)
+				mainLayout.setStretch(0, 2)
+				mainLayout.setStretch(1, 1)
 
 			container.addLayout(mainLayout)
 		else:
