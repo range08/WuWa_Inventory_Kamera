@@ -86,7 +86,12 @@ class OCREngine:
 
     def _get_backend(self) -> Callable[[Any], Any]:
         if self._backend is None:
-            from rapidocr_onnxruntime import RapidOCR
+            try:
+                from rapidocr import RapidOCR
+            except ImportError:
+                # Compatibility fallback for existing development environments.
+                # New installs use the unified rapidocr package.
+                from rapidocr_onnxruntime import RapidOCR
 
             self._backend = RapidOCR()
         return self._backend
@@ -162,6 +167,26 @@ class OCREngine:
         if raw is None:
             return []
 
+        # rapidocr >= 3 returns a RapidOCROutput dataclass with parallel
+        # boxes/txts/scores fields rather than the legacy (results, elapsed)
+        # envelope used by rapidocr_onnxruntime.
+        if all(hasattr(raw, field) for field in ("boxes", "txts", "scores")):
+            boxes = OCREngine._to_sequence(raw.boxes)
+            texts = OCREngine._to_sequence(raw.txts)
+            scores = OCREngine._to_sequence(raw.scores)
+
+            if boxes is None and texts is None and scores is None:
+                return []
+            if boxes is None or texts is None or scores is None:
+                raise OCRError("RapidOCR output is missing boxes, texts, or scores")
+            if not (len(boxes) == len(texts) == len(scores)):
+                raise OCRError("RapidOCR output fields have mismatched lengths")
+
+            return [
+                [bbox, text, confidence]
+                for bbox, text, confidence in zip(boxes, texts, scores)
+            ]
+
         if isinstance(raw, tuple):
             entries = raw[0]
         elif (
@@ -182,7 +207,19 @@ class OCREngine:
         return entries
 
     @staticmethod
+    def _to_sequence(value: Any) -> list[Any] | None:
+        if value is None:
+            return None
+        if hasattr(value, "tolist"):
+            value = value.tolist()
+        if isinstance(value, (list, tuple)):
+            return list(value)
+        raise OCRError("RapidOCR output field is not a sequence")
+
+    @staticmethod
     def _normalize_bbox(raw_bbox: Any) -> tuple[tuple[float, float], ...]:
+        if hasattr(raw_bbox, "tolist"):
+            raw_bbox = raw_bbox.tolist()
         if not isinstance(raw_bbox, (list, tuple)) or not raw_bbox:
             raise OCRError("OCR token bounding box is invalid")
 
