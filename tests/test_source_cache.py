@@ -1,0 +1,92 @@
+import hashlib
+import json
+import tempfile
+import unittest
+
+from updater.providers import ArikatsuDataProvider
+from updater.source_cache import SourceCache, SourceCacheError
+
+
+class FakeFetcher:
+    def __init__(self, payloads):
+        self.payloads = payloads
+        self.calls = []
+
+    def __call__(self, url):
+        self.calls.append(url)
+        if url not in self.payloads:
+            raise AssertionError(f"Unexpected URL: {url}")
+        return self.payloads[url]
+
+
+class SourceCacheTests(unittest.TestCase):
+    def make_fixture(self):
+        provider = ArikatsuDataProvider("3.6")
+        revision = "a" * 40
+        readme = (
+            "# WW_Data\n"
+            "> Client region: Global</br>\n"
+            "> Status: Release</br>\n"
+            "> Game Version: 3.6.0</br>\n"
+            "> Resource Version: 3.6.6</br>\n"
+            "> Changelist: 8499915\n"
+        ).encode()
+
+        payloads = {
+            provider.revision_url(): json.dumps({"sha": revision}).encode(),
+            provider.metadata_url(): readme,
+        }
+        for path in provider.required_paths("ko"):
+            if path != "README.md":
+                payloads[provider.raw_url(path)] = f"fixture:{path}".encode()
+
+        return provider, revision, payloads
+
+    def test_sync_records_revision_metadata_and_hashes(self):
+        provider, revision, payloads = self.make_fixture()
+        fetcher = FakeFetcher(payloads)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = SourceCache(tmp, fetcher)
+            manifest_path = cache.sync(provider, "ko")
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(manifest["revision"], revision)
+            self.assertEqual(manifest["source"]["game_version"], "3.6.0")
+            self.assertEqual(manifest["source"]["resource_version"], "3.6.6")
+            self.assertEqual(manifest["source"]["changelist"], "8499915")
+            self.assertEqual(manifest["language"], "ko")
+
+            expected = payloads[provider.raw_url("BinData/role/roleinfo.json")]
+            entry = manifest["files"]["BinData/role/roleinfo.json"]
+            self.assertEqual(entry["sha256"], hashlib.sha256(expected).hexdigest())
+            self.assertEqual(entry["size"], len(expected))
+
+            validated = cache.validate(manifest_path)
+            self.assertEqual(validated["revision"], revision)
+
+    def test_validation_detects_tampering(self):
+        provider, _, payloads = self.make_fixture()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = SourceCache(tmp, FakeFetcher(payloads))
+            manifest_path = cache.sync(provider, "ko")
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            target = manifest_path.parent / next(iter(manifest["files"]))
+            target.write_bytes(b"tampered")
+
+            with self.assertRaises(SourceCacheError):
+                cache.validate(manifest_path)
+
+    def test_invalid_revision_fails_closed(self):
+        provider, _, payloads = self.make_fixture()
+        payloads[provider.revision_url()] = json.dumps({"sha": "not-a-sha"}).encode()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = SourceCache(tmp, FakeFetcher(payloads))
+            with self.assertRaises(SourceCacheError):
+                cache.sync(provider, "ko")
+
+
+if __name__ == "__main__":
+    unittest.main()
