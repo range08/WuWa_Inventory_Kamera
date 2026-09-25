@@ -58,16 +58,23 @@ class AssetCache:
         downloaded = 0
         reused = 0
         files: dict[str, dict[str, int | str]] = {}
+        previous_files = self._reusable_manifest_files(provider, revision)
 
         for asset_path in unique_paths:
             provider.repository_path(asset_path)
             target = self.root / asset_path
 
-            if target.is_file():
+            expected = previous_files.get(asset_path)
+            if target.is_file() and isinstance(expected, dict):
                 payload = target.read_bytes()
-                if self._valid_png(payload):
+                metadata = self._metadata(payload)
+                if (
+                    self._valid_png(payload)
+                    and metadata.get("sha256") == expected.get("sha256")
+                    and metadata.get("size") == expected.get("size")
+                ):
                     reused += 1
-                    files[asset_path] = self._metadata(payload)
+                    files[asset_path] = metadata
                     continue
 
             payload = self.fetcher(provider.raw_url(asset_path, revision))
