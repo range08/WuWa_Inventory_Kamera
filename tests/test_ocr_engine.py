@@ -125,6 +125,57 @@ class OCREngineTests(unittest.TestCase):
                 lambda _image: ([["not", "a", "valid", "token"]], 0.01)
             ).recognize(object(), OCRProfile(name="broken"))
 
+    def test_modern_rapidocr_output_is_supported(self):
+        class ModernOutput:
+            boxes = [
+                [[0, 0], [10, 0], [10, 10], [0, 10]],
+                [[20, 0], [30, 0], [30, 10], [20, 10]],
+            ]
+            txts = ("Hello", "World")
+            scores = (0.91, 0.93)
+
+        result = OCREngine(lambda _image: ModernOutput()).recognize(
+            object(),
+            OCRProfile(name="modern"),
+        )
+
+        self.assertEqual(result.text, "Hello World")
+        self.assertEqual(len(result.tokens), 2)
+        self.assertAlmostEqual(result.confidence, 0.92)
+
+    def test_modern_rapidocr_output_rejects_mismatched_fields(self):
+        class BrokenModernOutput:
+            boxes = [[[0, 0], [10, 0], [10, 10], [0, 10]]]
+            txts = ("Hello", "World")
+            scores = (0.91,)
+
+        with self.assertRaisesRegex(OCRError, "mismatched lengths"):
+            OCREngine(lambda _image: BrokenModernOutput()).recognize(
+                object(),
+                OCRProfile(name="modern-broken"),
+            )
+
+    def test_numpy_like_bbox_is_supported_without_numpy_dependency(self):
+        class ArrayLike:
+            def __init__(self, value):
+                self.value = value
+
+            def tolist(self):
+                return self.value
+
+        class ModernOutput:
+            boxes = ArrayLike(
+                [[[0, 0], [10, 0], [10, 10], [0, 10]]]
+            )
+            txts = ("42",)
+            scores = (0.99,)
+
+        result = OCREngine(lambda _image: ModernOutput()).recognize(
+            object(),
+            INTEGER_PROFILE,
+        )
+        self.assertEqual(result.text, "42")
+
 
 if __name__ == "__main__":
     unittest.main()
