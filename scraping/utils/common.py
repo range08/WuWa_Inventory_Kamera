@@ -1,4 +1,5 @@
 import re
+import logging
 import mss
 import cv2
 import json
@@ -10,6 +11,8 @@ from pathlib import Path
 from properties.config import (
     cfg, INVENTORY, ocr
 )
+
+logger = logging.getLogger('OCR')
 
 def loadFile(filePATH: str, default = None) -> dict | list:
     if default is None:
@@ -139,7 +142,8 @@ def imageToString(
         
         return '\n'.join(finalOutput).strip()
 
-    except:
+    except Exception:
+        logger.debug("OCR failed", exc_info=True)
         return ''
 
 def isUserAdmin():
