@@ -60,8 +60,10 @@ class HomeInterface(QWidget):
 			mainLayout = QHBoxLayout()
 
 			image_label = PixmapLabel()
-			try: image = QImage(FAILED[0]['image'])
-			except (KeyError, TypeError): image = QImage('')
+			try:
+				image = QImage(str(FAILED[0]['image']))
+			except (KeyError, TypeError):
+				image = QImage('')
 			pixmap = QPixmap.fromImage(image)
 			image_label.setPixmap(pixmap)
 			image_label.setScaledContents(True)
@@ -74,8 +76,12 @@ class HomeInterface(QWidget):
 			owned_layout = QVBoxLayout()
 			owned_label = BodyLabel("Owned")
 			self.owned_spinbox = SpinBox()
-			self.owned_spinbox.setRange(1, 9999)
-			self.owned_spinbox.setValue(FAILED[0]['owned'])
+			self.owned_spinbox.setRange(0, 999999999)
+			self.owned_spinbox.setSpecialValueText("Unknown")
+			owned = FAILED[0].get('owned')
+			self.owned_spinbox.setValue(
+				owned if isinstance(owned, int) and owned >= 0 else 0
+			)
 			owned_layout.addWidget(owned_label)
 			owned_layout.addWidget(self.owned_spinbox)
 			middle_layout.addLayout(owned_layout)
@@ -130,8 +136,17 @@ class HomeInterface(QWidget):
 
 		selected_item = self.list_widget.currentItem()
 		if selected_item:
+			owned = self.owned_spinbox.value()
+			if owned <= 0:
+				self.showNotification(
+					'warning',
+					'Quantity required',
+					'Enter the owned quantity before updating this item.',
+				)
+				return
+
 			item_id = itemsID.get(selected_item.text().lower().replace(' ', ''))['id']
-			INVENTORY['items'][item_id] = self.owned_spinbox.value()
+			INVENTORY['items'][item_id] = owned
 			savingScraped(START_DATE=INVENTORY['date'])
 		
 			if FAILED:
