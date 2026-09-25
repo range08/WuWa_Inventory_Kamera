@@ -94,6 +94,21 @@ class OCREngineTests(unittest.TestCase):
 
         self.assertEqual(result.text, "A B")
 
+    def test_partial_filtered_result_keeps_only_valid_tokens(self):
+        result = OCREngine(
+            lambda _image: (
+                [
+                    token(0, 0, "not-a-number", 0.4),
+                    token(30, 0, "42", 0.97),
+                ],
+                0.01,
+            )
+        ).recognize(object(), INTEGER_PROFILE)
+
+        self.assertEqual(result.text, "42")
+        self.assertEqual(len(result.tokens), 1)
+        self.assertAlmostEqual(result.confidence, 0.97)
+
     def test_empty_result_has_zero_confidence(self):
         result = OCREngine(lambda _image: (None, 0.01)).recognize(
             object(),
