@@ -9,6 +9,7 @@ import tempfile
 import urllib.error
 import urllib.request
 from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -73,6 +74,7 @@ class SourceCache:
 
         manifest = {
             "schema_version": 1,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "source": asdict(metadata),
             "revision": revision,
             "language": language,
