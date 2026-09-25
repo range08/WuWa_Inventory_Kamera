@@ -69,11 +69,19 @@ class SourceCache:
         provider.required_paths(language)
 
         try:
-            revision = self._fetch_revision(provider)
-        except SourceCacheError:
+            return self._sync_remote(provider, language)
+        except (SourceCacheError, OSError):
             if not allow_cached_fallback:
                 raise
             return self.latest_valid(provider, language)
+
+    def _sync_remote(
+        self,
+        provider: ArikatsuDataProvider,
+        language: str,
+    ) -> Path:
+        """Synchronize from the selected upstream revision without fallback."""
+        revision = self._fetch_revision(provider)
 
         cache_dir = (
             self.root
@@ -98,7 +106,15 @@ class SourceCache:
                 ):
                     return manifest_path
 
-        readme_bytes = self.fetcher(provider.metadata_url())
+        try:
+            readme_bytes = self.fetcher(provider.metadata_url())
+        except SourceCacheError:
+            raise
+        except Exception as exc:
+            raise SourceCacheError(
+                "Failed to download source metadata"
+            ) from exc
+
         try:
             readme = readme_bytes.decode("utf-8")
         except UnicodeDecodeError as exc:
@@ -108,11 +124,18 @@ class SourceCache:
         files: dict[str, dict[str, int | str]] = {}
 
         for source_path in provider.required_paths(language):
-            payload = (
-                readme_bytes
-                if source_path == "README.md"
-                else self.fetcher(provider.raw_url(source_path))
-            )
+            if source_path == "README.md":
+                payload = readme_bytes
+            else:
+                try:
+                    payload = self.fetcher(provider.raw_url(source_path))
+                except SourceCacheError:
+                    raise
+                except Exception as exc:
+                    raise SourceCacheError(
+                        f"Failed to download source file: {source_path}"
+                    ) from exc
+
             target = cache_dir / source_path
             self._atomic_write(target, payload)
             files[source_path] = {
