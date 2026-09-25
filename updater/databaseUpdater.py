@@ -1,8 +1,10 @@
 import re
 import json
 import urllib.request
+import urllib.error
 import logging
 from babel import Locale
+from babel.core import UnknownLocaleError
 from pathlib import Path
 from dataclasses import dataclass
 from PySide6.QtCore import QObject, Signal
@@ -62,15 +64,17 @@ class DataUpdater(QObject):
 
 	def _getLanguageName(self, code: str) -> str:
 		parts = code.split('-')
-		locale = Locale(parts[0], script=parts[1] if len(parts) != 1 else None)
-		try: return locale.get_display_name().capitalize()
-		except: return code
+		try:
+			locale = Locale(parts[0], script=parts[1] if len(parts) != 1 else None)
+			return locale.get_display_name().capitalize()
+		except (UnknownLocaleError, ValueError, TypeError):
+			return code
 
 	def fetchFileData(self, url: str) -> dict:
 		try:
 			with urllib.request.urlopen(urllib.request.Request(url)) as response:
 				return json.loads(response.read().decode())
-		except:
+		except (urllib.error.URLError, json.JSONDecodeError, UnicodeDecodeError, OSError):
 			return {}
 
 	def updateFiles(self):
@@ -110,7 +114,7 @@ class DataUpdater(QObject):
 		try:
 			with open(f'./data/{filename}', 'r', encoding='utf-8') as f:
 				return json.load(f)
-		except:
+		except (FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError, OSError):
 			return dict()
 
 	def saveJson(self, data: dict, filename: str):
