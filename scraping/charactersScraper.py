@@ -6,7 +6,7 @@ from collections import defaultdict
 
 from scraping.utils import charactersID, weaponsID, definedText
 from scraping.utils import (
-    screenshot, convertToBlackWhite, imageToString,
+    screenshot, convertToBlackWhite, imageToResult, imageToString,
     WindowsInputController
 )
 from game.screenInfo import ScreenInfo
@@ -15,6 +15,7 @@ from scraping.ocr_engine import (
     INTEGER_PROFILE,
     LEVEL_PROFILE,
     NAME_PROFILE,
+    require_confidence,
 )
 from scraping.matching import (
     EQUIPPED_WEAPON_NAME_CUTOFF,
@@ -50,7 +51,11 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
     if resonatorNameHash in nameCache:
         resonatorID = nameCache[resonatorNameHash]
     else:
-        resonatorName = imageToString(resonatorNameImage, profile=NAME_PROFILE).lower()
+        resonatorNameResult = require_confidence(
+            imageToResult(resonatorNameImage, profile=NAME_PROFILE),
+            field="resonator-name",
+        )
+        resonatorName = resonatorNameResult.text.lower()
 
         result = best_match(
             resonatorName,
@@ -108,7 +113,11 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     if weaponNameHash in _cache:
         weaponID = _cache[weaponNameHash]
     else:
-        weaponName = imageToString(weaponNameImage, profile=NAME_PROFILE).lower()
+        weaponNameResult = require_confidence(
+            imageToResult(weaponNameImage, profile=NAME_PROFILE),
+            field="equipped-weapon-name",
+        )
+        weaponName = weaponNameResult.text.lower()
     
         result = best_match(
             weaponName,
@@ -206,7 +215,11 @@ def scrapeSkills(controller: WindowsInputController, screenInfo: ScreenInfo, cha
                 if buttonHash in _cache:
                     button = _cache[buttonHash]
                 else:
-                    button = imageToString(buttonImage).lower()
+                    buttonResult = require_confidence(
+                        imageToResult(buttonImage),
+                        field="skill-node-status",
+                    )
+                    button = buttonResult.text.lower()
                     _cache[buttonHash] = button
 
                 if button.lower() == definedText['PrefabTextItem_3963945691_Text']: # MULTILANG
@@ -236,11 +249,15 @@ def scrapeChain(controller: WindowsInputController, screenInfo: ScreenInfo, char
             if statusHash in _cache:
                 status = _cache[statusHash]
             else:
-                status = imageToString(
-                    statusImage,
-                    '',
-                    bannedChars=f'{string.punctuation} ',
-                ).lower()
+                statusResult = require_confidence(
+                    imageToResult(
+                        statusImage,
+                        '',
+                        bannedChars=f'{string.punctuation} ',
+                    ),
+                    field="resonance-chain-status",
+                )
+                status = statusResult.text.lower()
                 _cache[statusHash] = status
 
             if status.lower() != definedText['PrefabTextItem_3963945691_Text']: # MULTILANG
