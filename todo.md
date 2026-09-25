@@ -100,7 +100,7 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 - [x] Never substitute an unrecognized item with quantity 1 without flagging it.
 - [x] Save failed item OCR description crops with paired JSON metadata containing failure reason, OCR text/confidence, fingerprint, and privacy flags.
 - [x] Add review handling for uncertain OCR where scanning can safely continue: item, weapon, and Echo inventory entries route unknown/low-confidence results to privacy-minimized review artifacts; critical character state remains fail-closed.
-- [ ] Avoid saving UID/account-identifying screenshot regions unless explicitly needed.
+- [x] Avoid persisting UID/account-identifying full-screen captures: review/diagnostic writers save only reviewed narrow ROIs, and fast CI rejects new unapproved `cv2.imwrite` capture paths.
 
 ## Phase 5 — Wuthering Waves 3.6 UI/ROI validation
 
@@ -149,14 +149,14 @@ Start with 1920x1080 fullscreen.
 - [ ] Verify all six resonance-chain nodes.
 - [x] Improve resonator end-of-list detection so overlapping scroll viewports do not terminate on the first duplicate.
 - [x] Prevent duplicate character processing by resolving cached name cards to IDs and skipping already-scanned resonators.
-- [ ] Store OCR confidence/debug metadata outside compatibility export. Failed item OCR now records confidence sidecars; broader per-field debug metadata remains pending.
+- [x] Store OCR confidence/debug information outside compatibility exports: item/weapon/Echo review sidecars persist confidence and critical character/number/status confidence failures are retained in redacted debug logs.
 
 ## Phase 9 — Weapon scanner
 
 - [ ] Verify 24-slot page assumptions and count/page OCR.
 - [ ] Verify equipped/locked states.
-- [ ] Verify rarity/level filters.
-- [ ] Preserve duplicate weapon copies.
+- [x] Verify weapon rarity/level threshold logic with shared inclusive-boundary tests and use the same tested filter in the live scanner path.
+- [x] Preserve duplicate weapon copies explicitly through the no-deduplication record-collection contract and regression tests.
 - [x] Verify max-level ascension mapping with shared level-cap parsing tests, including level cap 90 -> ascension 6.
 - [x] Preserve unknown/low-confidence weapon inventory entries as privacy-minimized review crops plus JSON sidecars while continuing the remaining weapon scan.
 
@@ -166,7 +166,7 @@ Start with 1920x1080 fullscreen.
 - [x] Generate current sonata/set names from `PhantomFetter_*_Name` in the selected Global TextMap; verified through the real 3.6 Korean data-generation smoke.
 - [ ] Verify current main stat combinations and all substat aliases.
 - [ ] Verify rarity, tune level, locked/favorited/equipped states.
-- [ ] Avoid collapsing distinct identical-stat echoes.
+- [x] Preserve distinct identical-stat Echo copies explicitly through the no-deduplication record-collection contract and regression tests.
 - [x] Compare maintained Echo OCR approaches in `docs/ECHO_OCR_RESEARCH.md`; retain only high-level design observations and copy no external source/templates/assets.
 
 ## Phase 11 — Item/resource scanner
@@ -246,7 +246,7 @@ Do not publish a compatibility claim until:
 - [ ] Korean character scan passes.
 - [ ] English character scan passes.
 - [ ] Weapons, Echoes, Development Items, Resources pass.
-- [ ] Export files validate.
+- [x] Validate legacy inventory/character/weapon/Echo/achievement structures and value ranges before writing a successful scan; dependency-free valid/invalid export-set tests pass.
 - [x] No credential-like secrets are allowed in exports, and application logs redact oauthCode/access-refresh tokens/passwords/client secrets/Authorization Bearer values including exception tracebacks.
 - [x] OCR failures are surfaced instead of silently guessed; item/weapon uncertainty is queued for review and other invalid scanner fields fail closed.
 - [x] GPL-3.0 and upstream/Inventory Kamera attribution are preserved.
