@@ -226,3 +226,11 @@ def find_item_by_id(item_id: int) -> ItemRecord | None:
         if record["id"] == item_id:
             return record
     return None
+
+
+def find_item_by_display_name(display_name: str) -> ItemRecord | None:
+    for value in itemsID.values():
+        record = cast(ItemRecord, value)
+        if record["name"] == display_name:
+            return record
+    return None
