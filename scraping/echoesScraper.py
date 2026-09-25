@@ -87,10 +87,11 @@ def getEchoPages(screenInfo: ScreenInfo) -> int:
             screenInfo.echoes.page.x:
             screenInfo.echoes.page.x + screenInfo.echoes.page.w,
         ]
-        echoCountText = imageToString(
-            image,
-            profile=LEVEL_PROFILE,
-        ).split('/')[0]
+        echoCountResult = require_confidence(
+            imageToResult(image, profile=LEVEL_PROFILE),
+            field="echo-inventory-count",
+        )
+        echoCountText = echoCountResult.text.split('/')[0]
 
         try:
             return int(echoCountText)
