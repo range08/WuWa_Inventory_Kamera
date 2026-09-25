@@ -143,6 +143,47 @@ class OCREngineTests(unittest.TestCase):
         self.assertEqual(len(result.tokens), 2)
         self.assertAlmostEqual(result.confidence, 0.92)
 
+    def test_candidate_recognition_uses_first_confident_result(self):
+        calls = []
+
+        def backend(image):
+            calls.append(image)
+            score = {1: 0.40, 2: 0.92, 3: 0.99}[image]
+            return [[[[0, 0], [10, 0], [10, 10], [0, 10]], str(image), score]]
+
+        result = OCREngine(backend).recognize_candidates(
+            [1, 2, 3],
+            OCRProfile(name="candidate"),
+            accept_confidence=0.85,
+        )
+
+        self.assertEqual(result.text, "2")
+        self.assertEqual(calls, [1, 2])
+
+    def test_candidate_recognition_returns_best_low_confidence_result(self):
+        def backend(image):
+            score = {1: 0.40, 2: 0.70, 3: 0.60}[image]
+            return [[[[0, 0], [10, 0], [10, 10], [0, 10]], str(image), score]]
+
+        result = OCREngine(backend).recognize_candidates(
+            [1, 2, 3],
+            OCRProfile(name="candidate"),
+            accept_confidence=0.85,
+        )
+        self.assertEqual(result.text, "2")
+        self.assertAlmostEqual(result.confidence, 0.70)
+
+    def test_candidate_recognition_validates_arguments(self):
+        engine = OCREngine(lambda _image: [])
+        with self.assertRaises(ValueError):
+            engine.recognize_candidates([], OCRProfile(name="candidate"))
+        with self.assertRaises(ValueError):
+            engine.recognize_candidates(
+                [1],
+                OCRProfile(name="candidate"),
+                accept_confidence=1.1,
+            )
+
     def test_modern_rapidocr_output_rejects_mismatched_fields(self):
         class BrokenModernOutput:
             boxes = [[[0, 0], [10, 0], [10, 10], [0, 10]]]
