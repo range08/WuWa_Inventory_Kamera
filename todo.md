@@ -90,14 +90,14 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 
 ## Phase 4 — Modernize OCR
 
-- [ ] Wrap RapidOCR behind an OCR interface.
-- [ ] Preserve OCR confidence values.
-- [ ] Return structured OCR results with text, confidence, bounding box, and preprocessing profile.
-- [ ] Add separate profiles for names, integer quantities, level current/max, percentages, and Korean text.
+- [x] Wrap RapidOCR behind an OCR interface.
+- [x] Preserve OCR confidence values.
+- [x] Return structured OCR results with text, confidence, bounding box, and preprocessing profile.
+- [x] Add separate profiles for names, integer quantities, level current/max, percentages, and Korean text.
 - [ ] Add multiple preprocessing candidates.
-- [ ] Normalize Unicode, spaces, and punctuation.
+- [x] Normalize Unicode, spaces, and punctuation.
 - [ ] Use field-specific fuzzy-match thresholds.
-- [ ] Never substitute an unrecognized item with quantity 1 without flagging it.
+- [x] Never substitute an unrecognized item with quantity 1 without flagging it.
 - [ ] Save failed OCR crops with metadata.
 - [ ] Add a review queue for uncertain OCR results.
 - [ ] Avoid saving UID/account-identifying screenshot regions unless explicitly needed.
@@ -203,7 +203,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Add screenshot fixture tests for every scanner.
 - [ ] Add Korean and English regression coverage.
 - [ ] Add export schema tests.
-- [ ] Add malformed/partial OCR tests.
+- [x] Add malformed/partial OCR tests.
 - [x] Add offline updater/cache-reuse tests.
 - [ ] Ensure tests do not require the game installed.
 
