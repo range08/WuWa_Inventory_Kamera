@@ -21,6 +21,7 @@ from scraping.account_export import (
 )
 from scraping.cancellation import ScanCancelled, check_cancelled
 from scraping.result_protocol import ScraperMessageError, parse_scraper_message
+from scraping.export_schema import validate_scan_sections
 from scraping.scan_metadata import build_scan_metadata
 
 from game.menu import MainMenuController
@@ -330,6 +331,14 @@ def scrapers(
             echoes=echoes,
             achievements=achievements,
             failed_count=len(failed),
+        )
+
+        validate_scan_sections(
+            inventory=inventory,
+            characters=resonator,
+            weapons=weapons,
+            echoes=echoes,
+            achievements=achievements,
         )
 
         scannedData = {
