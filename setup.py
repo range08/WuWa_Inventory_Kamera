@@ -5,7 +5,7 @@ from version import __version__
 executables = [
     cx_Freeze.Executable(
         "main.py",
-        base="Win32GUI",
+        base="gui",
         target_name="WuWa Inventory Kamera",
         icon="assets/icon.ico",
         uac_admin=True
