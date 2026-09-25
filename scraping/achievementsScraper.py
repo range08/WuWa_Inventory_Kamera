@@ -8,6 +8,7 @@ from scraping.utils import (
     WindowsInputController
 )
 from game.screenInfo import ScreenInfo
+from scraping.cancellation import check_cancelled
 
 def processAchievement(image: np.ndarray, screenInfo: ScreenInfo, achievementName: str, _cache: dict) -> str | None:
     statusImage = image[screenInfo.achievements.status.y:screenInfo.achievements.status.y + screenInfo.achievements.status.h, screenInfo.achievements.status.x:screenInfo.achievements.status.x + screenInfo.achievements.status.w]
@@ -23,15 +24,17 @@ def processAchievement(image: np.ndarray, screenInfo: ScreenInfo, achievementNam
     
     return None
 
-def achievementScraper(controller: WindowsInputController, screenInfo: ScreenInfo) -> list[str]:
+def achievementScraper(controller: WindowsInputController, screenInfo: ScreenInfo, cancel_event=None) -> list[str]:
     achievements = []
     _cache = dict()
 
+    check_cancelled(cancel_event)
     controller.pressKey('esc', 1)
     controller.leftClick(screenInfo.achievements.achievementsButton.x, screenInfo.achievements.achievementsButton.y, 1.2)
     controller.leftClick(screenInfo.achievements.achievementsTab.x, screenInfo.achievements.achievementsTab.y, 1)
 
     for achievementName in achievementsID:
+        check_cancelled(cancel_event)
         copyToClipboard(achievementName)
         controller.leftClick(screenInfo.achievements.searchBar.x, screenInfo.achievements.searchBar.y, .3)
         controller.hotKey('ctrl', 'v', waitTime=.3)
