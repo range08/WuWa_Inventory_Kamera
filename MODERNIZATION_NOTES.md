@@ -28,3 +28,14 @@ Do not claim 3.6 compatibility based only on data regeneration. Current-game ROI
 
 - Fixed the skill-button OCR cache to read and write with `buttonHash`.
 - Audited cache access patterns in `charactersScraper.py`, `weaponsScraper.py`, `echoesScraper.py`, `itemsScraper.py`, `achievementsScraper.py`, and `shellScraper.py`; no additional mismatched cache-key use was found by inspection.
+
+
+## Phase 2 initial provider work
+
+- Added `updater/providers.py` as a dependency-free source descriptor layer.
+- Added parsing for upstream Game Version, Resource Version, and Changelist metadata.
+- Added explicit source-path validation.
+- Added unit tests for metadata parsing, required paths, unsafe path rejection, and fail-closed metadata parsing.
+- Added `docs/GAME_DATA.md` documenting the no-vendoring boundary for upstream game data.
+- The Arikatsu data repository exposes current Global 3.6 data but no explicit LICENSE file was found during this audit; raw BinData/Textmaps therefore remain local update/build inputs and are not to be redistributed by this fork.
+- Added a minimal Windows GitHub Actions workflow running `compileall` and dependency-free unit tests.
