@@ -12,6 +12,7 @@ from scraping.utils import (
 from game.screenInfo import ScreenInfo
 from properties.config import basePATH, cfg
 from scraping.cancellation import check_cancelled
+from scraping.filters import include_weapon
 from scraping.ocr_engine import INTEGER_PROFILE, LEVEL_PROFILE, NAME_PROFILE
 from scraping.matching import (
     ITEM_NAME_CUTOFF,
@@ -219,35 +220,48 @@ def processGridItem(
         inventory[itemID] = value
         return True
     elif name in weaponsID:
-        if weaponsID[name]['rarity'] >= cfg.get(cfg.weaponsMinRarity):
-            levelImage = image[screenInfo.weapons.level.y:screenInfo.weapons.level.y + screenInfo.weapons.level.h, screenInfo.weapons.level.x:screenInfo.weapons.level.x + screenInfo.weapons.level.w]
-            # levelImage = convertToBlackWhite(levelImage)
-            levelHash = hash(levelImage.tobytes())
+        levelImage = image[
+            screenInfo.weapons.level.y:
+            screenInfo.weapons.level.y + screenInfo.weapons.level.h,
+            screenInfo.weapons.level.x:
+            screenInfo.weapons.level.x + screenInfo.weapons.level.w,
+        ]
+        levelHash = hash(levelImage.tobytes())
 
-            if levelHash in _cache:
-                levelText = _cache[levelHash]
+        if levelHash in _cache:
+            levelText = _cache[levelHash]
+        else:
+            levelText = imageToString(levelImage, profile=LEVEL_PROFILE)
+            _cache[levelHash] = levelText
+
+        try:
+            currentLevel, _ = parse_level_pair(levelText)
+        except ScanParseError as exc:
+            raise ValueError(
+                f"Unable to parse weapon level from OCR result: {levelText!r}"
+            ) from exc
+
+        if include_weapon(
+            rarity=weaponsID[name]['rarity'],
+            level=currentLevel,
+            min_rarity=cfg.get(cfg.weaponsMinRarity),
+            min_level=cfg.get(cfg.weaponsMinLevel),
+        ):
+            rankImage = image[
+                screenInfo.weapons.rank.y:
+                screenInfo.weapons.rank.y + screenInfo.weapons.rank.h,
+                screenInfo.weapons.rank.x:
+                screenInfo.weapons.rank.x + screenInfo.weapons.rank.w,
+            ]
+            rankImage = convertToBlackWhite(rankImage)
+            rankHash = hash(rankImage.tobytes())
+
+            if rankHash in _cache:
+                rankText = _cache[rankHash]
             else:
-                levelText = imageToString(levelImage, profile=LEVEL_PROFILE)
-                _cache[levelHash] = levelText
-            
-            try:
-                currentLevel, _ = parse_level_pair(levelText)
-            except ScanParseError as exc:
-                raise ValueError(
-                    f"Unable to parse weapon level from OCR result: {levelText!r}"
-                ) from exc
-
-            if currentLevel >= cfg.get(cfg.weaponsMinLevel):
-                rankImage = image[screenInfo.weapons.rank.y:screenInfo.weapons.rank.y + screenInfo.weapons.rank.h, screenInfo.weapons.rank.x:screenInfo.weapons.rank.x + screenInfo.weapons.rank.w]
-                rankImage = convertToBlackWhite(rankImage)
-                rankHash = hash(rankImage.tobytes())
-
-                if rankHash in _cache:
-                    rankText = _cache[rankHash]
-                else:
-                    rankText = imageToString(rankImage, profile=INTEGER_PROFILE)
-                    _cache[rankHash] = rankText
-                weapons.append(processWeapon(name, levelText, rankText))
+                rankText = imageToString(rankImage, profile=INTEGER_PROFILE)
+                _cache[rankHash] = rankText
+            weapons.append(processWeapon(name, levelText, rankText))
         return True
     return True
 
