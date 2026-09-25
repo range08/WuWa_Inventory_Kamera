@@ -140,4 +140,4 @@ RELEASE_URL = "https://github.com/range08/WuWa_Inventory_Kamera/releases/latest"
 
 # Load configuration
 cfg = Config()
-qconfig.load('config/config.json', cfg)
+qconfig.load(str(basePATH / 'config' / 'config.json'), cfg)
