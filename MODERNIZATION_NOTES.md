@@ -48,3 +48,14 @@ Do not claim 3.6 compatibility based only on data regeneration. Current-game ROI
 - Removed the remaining bare `except:` statements from scanner, UI fallback, and legacy updater paths.
 - Audited Python function signatures for mutable `{}`/`[]` defaults; no remaining cases were found after the `loadFile()` fix.
 - Modernization CI passed on head `f9bdde96d67cf7737c51400fdae86258ac4eb3d2`.
+
+
+## Game-data pipeline integration
+
+- Added a local source cache that resolves the selected upstream ref to an exact commit SHA and records SHA-256/size for every downloaded input.
+- Added atomic writes for source files and generated scanner mappings.
+- Added a legacy-compatible mapping generator for characters, weapons, items, echoes, achievements, echo stats, sonata names, and scanner-defined text.
+- Added `python -m tools.update_game_data --language <code> --ref <ref>`.
+- Replaced the runtime implementation of the existing Qt `DataUpdater` adapter with the new Global provider/cache/generator pipeline while keeping its signals stable for `loadingUI.py`.
+- Added the known Global language list to configuration so Korean is selectable before a first successful data download.
+- Removed the now-unused Babel dependency and explicitly declared pywin32, which is imported directly by the input/clipboard code.
