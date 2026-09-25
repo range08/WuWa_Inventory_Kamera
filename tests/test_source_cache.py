@@ -121,6 +121,57 @@ class SourceCacheTests(unittest.TestCase):
                 manifest_path,
             )
 
+
+    def test_sync_falls_back_when_metadata_download_fails(self):
+        provider, _, payloads = self.make_fixture()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = SourceCache(tmp, FakeFetcher(payloads))
+            manifest_path = cache.sync(provider, "ko")
+
+            def metadata_failure(url):
+                if url == provider.revision_url():
+                    return payloads[url]
+                raise SourceCacheError("metadata unavailable")
+
+            fallback_cache = SourceCache(tmp, metadata_failure)
+            self.assertEqual(fallback_cache.sync(provider, "ko"), manifest_path)
+
+    def test_sync_falls_back_when_source_file_download_fails(self):
+        provider, _, payloads = self.make_fixture()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = SourceCache(tmp, FakeFetcher(payloads))
+            manifest_path = cache.sync(provider, "ko")
+
+            def file_failure(url):
+                if url in (provider.revision_url(), provider.metadata_url()):
+                    return payloads[url]
+                raise SourceCacheError("source file unavailable")
+
+            fallback_cache = SourceCache(tmp, file_failure)
+            self.assertEqual(fallback_cache.sync(provider, "ko"), manifest_path)
+
+    def test_remote_failure_stays_fatal_when_fallback_disabled(self):
+        provider, _, payloads = self.make_fixture()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = SourceCache(tmp, FakeFetcher(payloads))
+            cache.sync(provider, "ko")
+
+            def metadata_failure(url):
+                if url == provider.revision_url():
+                    return payloads[url]
+                raise SourceCacheError("metadata unavailable")
+
+            strict_cache = SourceCache(tmp, metadata_failure)
+            with self.assertRaises(SourceCacheError):
+                strict_cache.sync(
+                    provider,
+                    "ko",
+                    allow_cached_fallback=False,
+                )
+
     def test_latest_valid_rejects_other_language(self):
         provider, _, payloads = self.make_fixture()
 
