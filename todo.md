@@ -234,7 +234,7 @@ Start with 1920x1080 fullscreen.
 - [x] Document Korean data-generation status, live-OCR limitations, diagnostics, logs, failed-OCR sidecars, and privacy guidance.
 - [x] Document the no-click ROI diagnostic workflow and the data-provider patch-update commands.
 - [x] Preserve GPL-3.0 licensing and upstream/Inventory Kamera attribution in the maintained fork.
-- [ ] Replace dead tutorial resources where licensing permits.
+- [x] Remove external Telegra.ph tutorial-image dependencies and replace them with maintained text instructions plus local privacy-safe diagnostic/overlay commands.
 - [x] Add `CONTRIBUTING.md` covering the safety boundary, development commands, game-data policy, screenshot privacy, scanner changes, exports, and release discipline.
 
 ## Phase 18 — Release gate
