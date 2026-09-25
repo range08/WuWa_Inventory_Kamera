@@ -11,9 +11,12 @@ from properties.config import (
     cfg, INVENTORY, ocr
 )
 
-def loadFile(filePATH: str, default = {}) -> dict:
+def loadFile(filePATH: str, default = None) -> dict | list:
+    if default is None:
+        default = {}
+
     try:
-        with open(filePATH, 'r') as file:
+        with open(filePATH, 'r', encoding='utf-8') as file:
             data = json.load(file)
             if isinstance(default, list):
                 data = list(data)
