@@ -32,7 +32,7 @@ class DataUpdaterThread(QThread):
 		logger.info("Starting data update process")
 		try:
 			self.dataUpdater.run()
-			logger.info("Data update process completed successfully")
+			logger.info("Data update process finished")
 		except Exception as e:
 			logger.error(f"Error during data update: {e}", exc_info=True)
 
