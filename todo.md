@@ -81,7 +81,7 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 
 ## Phase 3 — Separate generated game data from scanner logic
 
-- [ ] Move static/generated mappings out of import-time module globals.
+- [x] Move generated mapping file reads out of import-time module globals; scanners now hold stable references to an explicit in-memory data store reloaded only after full validation.
 - [ ] Add typed data-access functions.
 - [ ] Add `schema_version` to generated/exported formats.
 - [ ] Add `game_version`, `resource_version`, `language`, and `scan_time` metadata.
