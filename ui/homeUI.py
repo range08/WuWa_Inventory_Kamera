@@ -120,14 +120,20 @@ class HomeInterface(QWidget):
 		self.rightWidget.setVisible(True)
 		self.rightWidget.update()
 
+	def _removeFailedArtifactFiles(self, failed_item):
+		"""Delete local review artifacts after the item is resolved/skipped."""
+		for key in ('image', 'metadata'):
+			path = failed_item.get(key)
+			if path:
+				Path(path).unlink(missing_ok=True)
+
 	def onSkipButtonClicked(self):
 		"""Handle the Skip button click event."""
 		global FAILED
 
 		if FAILED:
-			Path(FAILED[0]['image']).unlink(missing_ok=True)
-			
-			FAILED.pop(0)
+			failed_item = FAILED.pop(0)
+			self._removeFailedArtifactFiles(failed_item)
 			self.updateUISignal.emit()
 
 	def onChangeButtonClicked(self):
@@ -150,8 +156,9 @@ class HomeInterface(QWidget):
 			savingScraped(START_DATE=INVENTORY['date'])
 		
 			if FAILED:
-				FAILED.pop(0)
-			
+				failed_item = FAILED.pop(0)
+				self._removeFailedArtifactFiles(failed_item)
+
 			self.updateUISignal.emit()
 		else:
 			self.showNotification('warning', 'Warning', 'Select the item name from the list on the right side.')
