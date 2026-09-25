@@ -99,7 +99,7 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 - [x] Use independently configurable fuzzy-match thresholds for resonators, equipped weapons, weapon inventory entries, items, and echoes.
 - [x] Never substitute an unrecognized item with quantity 1 without flagging it.
 - [x] Save failed item OCR description crops with paired JSON metadata containing failure reason, OCR text/confidence, fingerprint, and privacy flags.
-- [ ] Add a review queue for uncertain OCR results. Failed item OCR is reviewable; confidence-threshold routing for otherwise parseable results remains pending.
+- [ ] Add a review queue for uncertain OCR results. Item and weapon inventory entries now route low-confidence/unknown OCR to review; character/Echo field-level review queues remain pending.
 - [ ] Avoid saving UID/account-identifying screenshot regions unless explicitly needed.
 
 ## Phase 5 — Wuthering Waves 3.6 UI/ROI validation
@@ -132,7 +132,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Replace fragile fixed click/sleep sequences with explicit states.
 - [ ] Verify expected screen before each action.
 - [ ] Verify expected transition after each action.
-- [ ] Add bounded retries and safe cancellation. Cooperative cancellation with a 4-second hard-termination fallback is implemented; transition retries remain pending.
+- [x] Add bounded retries and safe cancellation: critical count/Shell OCR reads use bounded 3-attempt retries, and scanner cancellation is cooperative with a 4-second hard-termination fallback.
 - [x] Remove the forced Administrator requirement; scanner input remains ordinary user-level Win32 mouse/keyboard automation. Real game interaction still requires manual validation.
 - [x] Keep all interaction at ordinary user-input level; no process memory, injection, packet interception, or anti-cheat bypass path is used.
 - [x] Add a no-click screenshot diagnostic mode that captures only named scanner ROIs and layout metadata.
@@ -158,7 +158,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Verify rarity/level filters.
 - [ ] Preserve duplicate weapon copies.
 - [ ] Verify max-level ascension mapping.
-- [ ] Preserve unknown weapons in review queue.
+- [x] Preserve unknown/low-confidence weapon inventory entries as privacy-minimized review crops plus JSON sidecars while continuing the remaining weapon scan.
 
 ## Phase 10 — Echo scanner
 
@@ -225,7 +225,7 @@ Start with 1920x1080 fullscreen.
 - [x] Add import/compile smoke test.
 - [x] Add data-generation validation, including a manual real Global-data smoke workflow.
 - [x] Keep the Python 3.14 cx_Freeze build smoke workflow separate from the fast dependency-free PR checks.
-- [ ] Do not auto-publish releases until builds are reproducible.
+- [x] Do not auto-publish releases; release workflows remain manual and packaged-build/fresh-install verification is separated from fast PR CI.
 
 ## Phase 17 — Documentation
 
@@ -241,14 +241,14 @@ Start with 1920x1080 fullscreen.
 
 Do not publish a compatibility claim until:
 
-- [ ] Fresh install works.
+- [x] Fresh install works in automated Windows verification: clean `.venv`, no pre-existing `data/`, real 3.6 Korean data bootstrap, offscreen Qt main-window construction, and packaged EXE smoke all pass.
 - [ ] 1920x1080 fullscreen is verified end-to-end.
 - [ ] Korean character scan passes.
 - [ ] English character scan passes.
 - [ ] Weapons, Echoes, Development Items, Resources pass.
 - [ ] Export files validate.
 - [ ] No secrets appear in logs/export.
-- [ ] OCR failures are surfaced instead of silently guessed.
+- [x] OCR failures are surfaced instead of silently guessed; item/weapon uncertainty is queued for review and other invalid scanner fields fail closed.
 - [x] GPL-3.0 and upstream/Inventory Kamera attribution are preserved.
 - [x] README lists the verified data-source versions: Global 3.6.0 / Resource 3.6.6, while keeping live scanner compatibility claims gated on real UI validation.
 
