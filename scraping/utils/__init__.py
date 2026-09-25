@@ -6,7 +6,7 @@ from scraping.utils.common import (
 
 from scraping.utils.common import (
     savingScraped, screenshot, convertToBlackWhite,
-    imageToString, imageToResult, copyToClipboard, isUserAdmin
+    imageToString, imageToResult, copyToClipboard
 )
 
 from scraping.utils.mouse_keyboard import WindowsInputController
