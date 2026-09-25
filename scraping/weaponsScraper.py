@@ -76,6 +76,7 @@ def _save_weapon_review(
         crop_file=image_path.name,
         ocr_result=ocr_result,
         owned=None,
+        candidate=candidate,
     )
     return {
         "kind": "weapon",
