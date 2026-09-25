@@ -55,9 +55,9 @@ Design goal: avoid hard-coding the project to 3.6 so that 3.7+ updates are mostl
 
 Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `TextMap`, `ConfigDB/ItemInfo.json`, and `ConfigDB/WeaponConf.json`.
 
-- [ ] Introduce a game-data provider abstraction.
-- [ ] Add a provider for a current Global-client data source.
-- [ ] Use `Arikatsu/WutheringWaves_Data` as the first supported Global data provider.
+- [x] Introduce a game-data provider abstraction.
+- [x] Add a provider for a current Global-client data source.
+- [x] Use `Arikatsu/WutheringWaves_Data` as the first supported Global data provider.
 - [ ] Read the upstream version metadata before importing data.
 - [ ] Persist source metadata:
   - [ ] repository
@@ -219,10 +219,10 @@ Start with 1920x1080 fullscreen.
 
 ## Phase 16 — CI
 
-- [ ] Add Windows GitHub Actions for tests.
-- [ ] Do not require the game in CI.
+- [x] Add Windows GitHub Actions for dependency-free syntax/unit tests.
+- [x] Do not require the game in CI.
 - [ ] Add lint/format checks.
-- [ ] Add import/compile smoke test.
+- [x] Add import/compile smoke test.
 - [ ] Add data-generation validation.
 - [ ] Keep build smoke test separate from fast PR checks.
 - [ ] Do not auto-publish releases until builds are reproducible.
