@@ -231,15 +231,17 @@ def scrapers(
                     case 'characters':
                         resonator = resonatorScraper(controller, screenInfo, cancelFLAG)
                     case 'weapons':
-                        i, w = weaponScraper(
+                        i, w, r = weaponScraper(
                             controller,
                             screenInfo.scrapers.weapons.x,
                             screenInfo.scrapers.weapons.y,
                             screenInfo,
-                            cancelFLAG,
+                            cancel_event=cancelFLAG,
+                            start_date=START_DATE,
                         )
                         inventory.update(i)
                         weapons.extend(w)
+                        failed.extend(r)
                     case 'echoes':
                         echoes = echoScraper(
                             controller,
