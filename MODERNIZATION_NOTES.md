@@ -108,3 +108,14 @@ Weapon and Echo final-page boundaries were also corrected to stop at `global_ind
 - Fixed a Korean-specific echo-stat bug where the old `ascii_letters` filter removed all Hangul before matching localized stat names.
 - Added dependency-free tests for confidence/bbox preservation, Unicode normalization, row grouping, integer filtering, Korean stat names, malformed backend results, empty results, and partial-token filtering.
 - Modernization CI passed on head `7203a2098593f981be724f21201e8e6eb9958600`.
+
+
+## Item inventory termination hardening
+
+- Removed the legacy `ceil(quantity / 999)` end-of-inventory heuristic; owned quantity is no longer used to infer scrolling state.
+- Item detail cards now use SHA-256 fingerprints of the preprocessed information ROI.
+- Repeated cards caused by overlapping scroll positions or empty slots retaining the previous selection are committed only once.
+- A repeated 24-cell viewport fingerprint sequence marks the end of the scroll range.
+- Added a bounded `MAX_VIEWPORTS` guard so unexpected UI/OCR behavior fails closed instead of scrolling indefinitely.
+- Failed-recognition screenshots now use a safe fingerprint-based filename rather than raw OCR text.
+- Invalid quantity OCR is represented as unknown (`None`) in the manual-review record instead of a fabricated quantity of 1.
