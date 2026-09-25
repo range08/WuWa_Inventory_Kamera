@@ -36,7 +36,12 @@ echoStats: dict = loadFile('./data/echoStats.json')
 definedText: dict = loadFile('./data/definedText.json')
 sonataName: list = loadFile('./data/sonataName.json', [])
 
-def savingScraped(scannedData: dict = {'inventory_wuwainventorykamera.json': (INVENTORY['items'], dict)}, START_DATE: str = ''):
+def savingScraped(scannedData: dict | None = None, START_DATE: str = ''):
+    if scannedData is None:
+        scannedData = {
+            'inventory_wuwainventorykamera.json': (INVENTORY['items'], dict)
+        }
+
     savePATH: Path = Path(cfg.get(cfg.exportFolder)) / START_DATE
     
     if any(data != emptyType() for data, emptyType in scannedData.values()):
