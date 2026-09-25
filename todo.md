@@ -82,11 +82,11 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 ## Phase 3 — Separate generated game data from scanner logic
 
 - [x] Move generated mapping file reads out of import-time module globals; scanners now hold stable references to an explicit in-memory data store reloaded only after full validation.
-- [ ] Add typed data-access functions.
+- [x] Add typed generated-data accessors and validate nested item/weapon/ID/text mapping records before mutating live scanner state.
 - [x] Add schema versions to generated mapping manifests and to the separate non-breaking `scan_metadata.json` export.
 - [x] Add game/resource version, source revision, language, scanner version, and scan time to `scan_metadata.json` without changing legacy export files.
-- [ ] Maintain an export compatibility layer for existing WuWa Tracker users.
-- [ ] Avoid a repository-wide rewrite in one commit.
+- [x] Maintain existing WuWa Tracker-compatible filenames/data shapes; metadata, validation, and aggregate exports are additive files only.
+- [x] Keep modernization changes incremental and reviewable rather than replacing the repository in one rewrite.
 
 ## Phase 4 — Modernize OCR
 
@@ -94,12 +94,12 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 - [x] Preserve OCR confidence values.
 - [x] Return structured OCR results with text, confidence, bounding box, and preprocessing profile.
 - [x] Add separate profiles for names, integer quantities, level current/max, percentages, and Korean text.
-- [ ] Add multiple preprocessing candidates.
+- [x] Add confidence-gated OCR preprocessing fallback using original, thresholded, and inverted candidates.
 - [x] Normalize Unicode, spaces, and punctuation.
 - [x] Use independently configurable fuzzy-match thresholds for resonators, equipped weapons, weapon inventory entries, items, and echoes.
 - [x] Never substitute an unrecognized item with quantity 1 without flagging it.
-- [ ] Save failed OCR crops with metadata.
-- [ ] Add a review queue for uncertain OCR results.
+- [x] Save failed item OCR description crops with paired JSON metadata containing failure reason, OCR text/confidence, fingerprint, and privacy flags.
+- [ ] Add a review queue for uncertain OCR results. Failed item OCR is reviewable; confidence-threshold routing for otherwise parseable results remains pending.
 - [ ] Avoid saving UID/account-identifying screenshot regions unless explicitly needed.
 
 ## Phase 5 — Wuthering Waves 3.6 UI/ROI validation
@@ -120,7 +120,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Keep 1920x1080 as the first known-good reference.
 - [ ] Verify 2560x1440 with real screenshots.
 - [ ] Verify 1680x1050 separately.
-- [ ] Detect game client-area bounds rather than assuming monitor origin.
+- [x] Detect the Win32 client-area and target-monitor bounds before live automation; reject layouts that cannot safely use monitor-relative coordinates.
 - [ ] Account for Windows DPI scaling.
 - [ ] Support borderless-windowed if reliable.
 - [ ] Add a calibration/debug ROI overlay.
@@ -132,15 +132,15 @@ Start with 1920x1080 fullscreen.
 - [ ] Replace fragile fixed click/sleep sequences with explicit states.
 - [ ] Verify expected screen before each action.
 - [ ] Verify expected transition after each action.
-- [ ] Add bounded retries and safe cancellation.
+- [ ] Add bounded retries and safe cancellation. Cooperative cancellation with a 4-second hard-termination fallback is implemented; transition retries remain pending.
 - [x] Remove the forced Administrator requirement; scanner input remains ordinary user-level Win32 mouse/keyboard automation. Real game interaction still requires manual validation.
 - [x] Keep all interaction at ordinary user-input level; no process memory, injection, packet interception, or anti-cheat bypass path is used.
-- [ ] Add a dry-run/screenshot mode.
+- [x] Add a no-click screenshot diagnostic mode that captures only named scanner ROIs and layout metadata.
 
 ## Phase 8 — Character scanner
 
 - [ ] Verify Korean and English resonator-name recognition.
-- [ ] Improve Rover handling.
+- [x] Improve Rover handling with explicit Gender/Element settings and current 3.6 main-role variant IDs instead of a fixed 1502 ID.
 - [ ] Verify level/ascension.
 - [ ] Verify equipped weapon data.
 - [ ] Re-enable character echo scan only after standalone echo scan is reliable.
@@ -149,7 +149,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Verify all six resonance-chain nodes.
 - [x] Improve resonator end-of-list detection so overlapping scroll viewports do not terminate on the first duplicate.
 - [x] Prevent duplicate character processing by resolving cached name cards to IDs and skipping already-scanned resonators.
-- [ ] Store OCR confidence/debug metadata outside compatibility export.
+- [ ] Store OCR confidence/debug metadata outside compatibility export. Failed item OCR now records confidence sidecars; broader per-field debug metadata remains pending.
 
 ## Phase 9 — Weapon scanner
 
@@ -183,11 +183,11 @@ Start with 1920x1080 fullscreen.
 ## Phase 12 — Export schema
 
 - [x] Preserve legacy inventory/characters/weapons/echoes/achievements export filenames; new metadata is emitted only as an additional file.
-- [ ] Add optional aggregate `account.json`.
+- [x] Add optional `account.json`; it is emitted only when no manual-review item remains at scan completion.
 - [x] Add schema/game-data metadata in a separate `scan_metadata.json` file so legacy WuWa Tracker files remain unchanged.
 - [x] Use deterministic UTF-8 JSON formatting and atomic replacement for scanner exports.
-- [ ] Optionally include validation report.
-- [ ] Never export launcher auth tokens or credentials.
+- [x] Emit `validation_report.json` with selected scanners, section counts, and manual-review status.
+- [x] Block credential-like fields such as oauthCode/access-token/refresh-token/password/client-secret recursively in the JSON export writer.
 
 ## Phase 13 — Optional official launcher-data integration
 
@@ -221,7 +221,7 @@ Start with 1920x1080 fullscreen.
 
 - [x] Add Windows GitHub Actions for dependency-free syntax/unit tests.
 - [x] Do not require the game in CI.
-- [ ] Add lint/format checks.
+- [ ] Add lint/format checks. Pinned Ruff correctness lint is active; repository-wide formatting policy/check remains pending.
 - [x] Add import/compile smoke test.
 - [x] Add data-generation validation, including a manual real Global-data smoke workflow.
 - [x] Keep the Python 3.14 cx_Freeze build smoke workflow separate from the fast dependency-free PR checks.
@@ -231,11 +231,11 @@ Start with 1920x1080 fullscreen.
 
 - [x] Update README with verified Global 3.6 data-source status, current scanner constraints, and explicit no-compatibility-claim wording pending live UI validation.
 - [x] State current tested/accepted modes, explicit ROI resolutions, and Korean data-generation vs live-OCR validation status in README.
-- [ ] Document Korean support status and OCR troubleshooting.
+- [x] Document Korean data-generation status, live-OCR limitations, diagnostics, logs, failed-OCR sidecars, and privacy guidance.
 - [x] Document the no-click ROI diagnostic workflow and the data-provider patch-update commands.
 - [x] Preserve GPL-3.0 licensing and upstream/Inventory Kamera attribution in the maintained fork.
 - [ ] Replace dead tutorial resources where licensing permits.
-- [ ] Add `CONTRIBUTING.md`.
+- [x] Add `CONTRIBUTING.md` covering the safety boundary, development commands, game-data policy, screenshot privacy, scanner changes, exports, and release discipline.
 
 ## Phase 18 — Release gate
 
@@ -249,7 +249,7 @@ Do not publish a compatibility claim until:
 - [ ] Export files validate.
 - [ ] No secrets appear in logs/export.
 - [ ] OCR failures are surfaced instead of silently guessed.
-- [ ] GPL-3.0 and attribution are preserved.
+- [x] GPL-3.0 and upstream/Inventory Kamera attribution are preserved.
 - [x] README lists the verified data-source versions: Global 3.6.0 / Resource 3.6.6, while keeping live scanner compatibility claims gated on real UI validation.
 
 ## After 3.6
