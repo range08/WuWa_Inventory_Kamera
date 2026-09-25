@@ -1,7 +1,4 @@
-import os
-import sys
 import time
-import signal
 import logging
 import multiprocessing
 from queue import Empty
@@ -18,6 +15,7 @@ from scraping.charactersScraper import resonatorScraper
 from scraping.weaponsScraper import weaponScraper
 from scraping.echoesScraper import echoScraper
 from scraping.achievementsScraper import achievementScraper
+from scraping.cancellation import ScanCancelled, check_cancelled
 from scraping.result_protocol import ScraperMessageError, parse_scraper_message
 from scraping.scan_metadata import build_scan_metadata
 
@@ -27,6 +25,8 @@ from game.foreground import WindowManager
 from game.stopKey import KeyPressChecker
 
 logger = logging.getLogger('ScraperManager')
+
+CANCEL_GRACE_SECONDS = 4.0
 
 
 def _applyScraperMessage(message):
@@ -78,6 +78,7 @@ def managerStart(scraperEnabled: list):
                 scraperEnabled,
                 gameManager.getScreenInfo(),
                 completeFLAG,
+                cancelFLAG,
                 queue,
                 INVENTORY['date'],
             ),
@@ -86,7 +87,7 @@ def managerStart(scraperEnabled: list):
 
         stopMonitor = multiprocessing.Process(
             target=needToStop,
-            args=(scrapersProcess.pid, completeFLAG, cancelFLAG),
+            args=(completeFLAG, cancelFLAG),
         )
         stopMonitor.start()
 
@@ -96,7 +97,26 @@ def managerStart(scraperEnabled: list):
         try:
             # Consume queue messages while the child is alive. Waiting until
             # after join() can deadlock when the multiprocessing pipe fills.
+            cancelRequestedAt = None
             while scrapersProcess.is_alive():
+                if cancelFLAG.is_set():
+                    if cancelRequestedAt is None:
+                        cancelRequestedAt = time.monotonic()
+                        logger.info(
+                            "Waiting for scanner process to exit cooperatively."
+                        )
+                    elif (
+                        time.monotonic() - cancelRequestedAt
+                        >= CANCEL_GRACE_SECONDS
+                    ):
+                        logger.warning(
+                            "Scanner did not exit within %.1f seconds; "
+                            "terminating it.",
+                            CANCEL_GRACE_SECONDS,
+                        )
+                        scrapersProcess.terminate()
+                        break
+
                 try:
                     message = queue.get(timeout=0.2)
                 except Empty:
@@ -125,7 +145,8 @@ def managerStart(scraperEnabled: list):
             logger.error("Fatal error processing scraper queue: %s", e, exc_info=True)
             scraperError = f"Queue processing error: {e}"
         finally:
-            stopMonitor.terminate()
+            if stopMonitor.is_alive():
+                stopMonitor.terminate()
             stopMonitor.join()
             queue.close()
             queue.join_thread()
@@ -164,22 +185,20 @@ def managerStart(scraperEnabled: list):
     return result
 
 
-def needToStop(tPID, completeFLAG, cancelFLAG):
+def needToStop(completeFLAG, cancelFLAG):
     keyPress = KeyPressChecker()
     gameManager = WindowManager()
 
-    while not completeFLAG.is_set():
-        # Check if the game is no longer in the foreground or if the key is pressed.
+    while not completeFLAG.is_set() and not cancelFLAG.is_set():
+        # Request cooperative cancellation when the game loses focus or the
+        # user presses the configured stop key. The parent process retains a
+        # bounded hard-termination fallback for an unresponsive child.
         if not gameManager.isForeground() or keyPress.isPressed():
+            logger.info(
+                "Requesting scanner cancellation due to stop key or focus loss."
+            )
             cancelFLAG.set()
-            try:
-                os.kill(tPID, signal.SIGTERM)
-                logger.debug(
-                    "Terminated scraper process due to key press or game not in foreground."
-                )
-            except Exception as e:
-                logger.error("Error terminating scraper process: %s", e, exc_info=True)
-            sys.exit(0)
+            return
         time.sleep(.1)
 
 
@@ -187,6 +206,7 @@ def scrapers(
     scraperEnabled: list,
     screenInfo: ScreenInfo,
     FLAG,
+    cancelFLAG,
     queue: multiprocessing.Queue,
     START_DATE: str,
 ):
@@ -201,18 +221,20 @@ def scrapers(
         achievements = list()
 
         for scraper in scraperEnabled:
+            check_cancelled(cancelFLAG)
             controller.pressKey('esc', .5)
 
             try:
                 match(scraper):
                     case 'characters':
-                        resonator = resonatorScraper(controller, screenInfo)
+                        resonator = resonatorScraper(controller, screenInfo, cancelFLAG)
                     case 'weapons':
                         i, w = weaponScraper(
                             controller,
                             screenInfo.scrapers.weapons.x,
                             screenInfo.scrapers.weapons.y,
                             screenInfo,
+                            cancelFLAG,
                         )
                         inventory.update(i)
                         weapons.extend(w)
@@ -222,6 +244,7 @@ def scrapers(
                             screenInfo.scrapers.echoes.x,
                             screenInfo.scrapers.echoes.y,
                             screenInfo,
+                            cancelFLAG,
                         )
                     case 'devItems':
                         i, f = itemsScraper(
@@ -230,6 +253,7 @@ def scrapers(
                             screenInfo.scrapers.devItems.x,
                             screenInfo.scrapers.devItems.y,
                             screenInfo,
+                            cancelFLAG,
                         )
                         inventory.update(i)
                         failed.extend(f)
@@ -240,11 +264,12 @@ def scrapers(
                             screenInfo.scrapers.resources.x,
                             screenInfo.scrapers.resources.y,
                             screenInfo,
+                            cancelFLAG,
                         )
                         inventory.update(i)
                         failed.extend(f)
                     case 'achievements':
-                        achievements = achievementScraper(controller, screenInfo)
+                        achievements = achievementScraper(controller, screenInfo, cancelFLAG)
                     case _:
                         raise ValueError(f"Unknown scraper: {scraper}")
 
@@ -252,15 +277,20 @@ def scrapers(
                     if '2' not in inventory or inventory.get('2') == 0:
                         shell = getShell(screenInfo)
                         inventory = {**shell, **inventory}
+            except ScanCancelled:
+                raise
             except Exception as exc:
                 raise RuntimeError(
                     f"{scraper} scanner failed: {exc}"
                 ) from exc
 
+        check_cancelled(cancelFLAG)
+
         chunkSize = 20
         inventoryItems = list(inventory.items())
 
         for i in range(0, len(inventoryItems), chunkSize):
+            check_cancelled(cancelFLAG)
             chunk = dict(inventoryItems[i:i + chunkSize])
             queue.put({
                 'type': 'inventory',
@@ -273,6 +303,7 @@ def scrapers(
                 'failed': failed,
             })
 
+        check_cancelled(cancelFLAG)
         scanMetadata = build_scan_metadata(
             basePATH / 'data' / 'mapping_manifest.json'
         )
@@ -287,6 +318,9 @@ def scrapers(
         queue.put({'type': 'complete'})
         FLAG.set()
 
+    except ScanCancelled:
+        logger.info("Scanner process acknowledged cancellation.")
+        FLAG.set()
     except Exception as e:
         logger.error("Error in scrapers: %s", e, exc_info=True)
         try:
