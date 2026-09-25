@@ -56,10 +56,10 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
         _cache[levelHash] = level
 
     try: ascensionLvl = ASCENSION_LEVELS.index(int(level[1]))
-    except: ascensionLvl = 0
+    except (ValueError, IndexError, TypeError): ascensionLvl = 0
 
     try: characterLvl = int(level[0])
-    except: characterLvl = 1
+    except (ValueError, IndexError, TypeError): characterLvl = 1
 
     characters[resonatorID]['level'] = characterLvl
     characters[resonatorID]['ascension'] = ascensionLvl
@@ -108,8 +108,8 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
         characters[resonatorID]['weapon']['level'] = int(level[0])
         characters[resonatorID]['weapon']['ascension'] = ASCENSION_LEVELS.index(int(level[1]))
         characters[resonatorID]['weapon']['rank'] = int(rank)
-    except:
-        logger.debug('Failed scraping the weapon')
+    except (ValueError, IndexError, KeyError, TypeError):
+        logger.debug('Failed scraping the weapon', exc_info=True)
 
 def scrapeSkills(controller: WindowsInputController, screenInfo: ScreenInfo, characters: dict, resonatorID: str, _cache: dict):
 
@@ -130,7 +130,7 @@ def scrapeSkills(controller: WindowsInputController, screenInfo: ScreenInfo, cha
             _cache[levelHash] = level
 
         try: level = int(level)
-        except:
+        except (TypeError, ValueError):
             level = 1
             _cache[levelHash] = level
             logger.debug('Failed scraping the skill level')
