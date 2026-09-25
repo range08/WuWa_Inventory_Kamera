@@ -83,11 +83,30 @@ class MappingGeneratorTests(unittest.TestCase):
         with self.assertRaises(MappingGenerationError):
             generate_characters(
                 [
-                    {"Id": 1205, "Name": "A"},
-                    {"Id": 1206, "Name": "B"},
+                    {"Id": 1205, "Name": "A", "ParentId": 0, "RoleType": 1},
+                    {"Id": 1206, "Name": "B", "ParentId": 0, "RoleType": 1},
                 ],
                 {"A": "Same Name", "B": "SameName"},
             )
+
+    def test_character_mapping_excludes_derived_and_main_role_variants(self):
+        characters = generate_characters(
+            [
+                {"Id": 1205, "Name": "Changli", "ParentId": 0, "RoleType": 1},
+                {"Id": 2005, "Name": "ChangliTrial", "ParentId": 1205, "RoleType": 5},
+                {"Id": 1501, "Name": "RoverMale", "ParentId": 0, "RoleType": 1},
+                {"Id": 1502, "Name": "RoverFemale", "ParentId": 0, "RoleType": 1},
+            ],
+            {
+                "Changli": "Changli",
+                "ChangliTrial": "Changli",
+                "RoverMale": "Rover: Havoc",
+                "RoverFemale": "Rover: Havoc",
+            },
+            excluded_role_ids={1501, 1502},
+        )
+
+        self.assertEqual(characters, {"changli": 1205})
 
     def test_normalization_matches_existing_scanner_convention(self):
         self.assertEqual(normalize_name("Blazing Brilliance"), "blazingbrilliance")
