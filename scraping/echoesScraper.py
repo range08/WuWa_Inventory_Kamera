@@ -27,6 +27,7 @@ from scraping.ocr_engine import (
 from scraping.matching import ECHO_NAME_CUTOFF, best_match
 from scraping.parsing import ScanParseError, parse_stat_value
 from scraping.retry import retry_call
+from scraping.record_collection import append_distinct_copy
 from scraping.review_queue import (
     DEFAULT_REVIEW_CONFIDENCE,
     write_review_metadata,
@@ -325,7 +326,10 @@ def processGridEcho(
         ):
             tuneLv, stats = processStats(image, screenInfo, _cache)
             sonata = getSonata(controller, screenInfo, _cache)
-            echoes.append(processEcho(name, level, tuneLv, sonata, rarity, stats))
+            append_distinct_copy(
+                echoes,
+                processEcho(name, level, tuneLv, sonata, rarity, stats),
+            )
 
         # Rarity/level filters decide whether this echo is exported; they must
         # not terminate scanning because later slots may still qualify.
