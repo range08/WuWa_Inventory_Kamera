@@ -1,5 +1,6 @@
 import os
 import cv2
+import logging
 import string
 import numpy as np
 from difflib import get_close_matches as getMatches
@@ -14,6 +15,8 @@ from scraping.utils import (
 )
 from game.screenInfo import ScreenInfo
 from properties.config import cfg
+
+logger = logging.getLogger('EchoScraper')
 
 # Constants
 ROWS, COLS = 4, 6
@@ -122,7 +125,8 @@ def processStats(image: np.ndarray, screenInfo: ScreenInfo, _cache: dict) -> dic
                 stats[stat].update({f"{statName}%": float(statValue[:-1])})
             else:
                 stats[stat].update({statName: int(statValue)})
-        except:
+        except (AttributeError, TypeError, ValueError):
+            logger.debug("Could not parse echo stat value %r for %s", statValue, statName)
             stats[stat].update({statName: statValue})
 
     return tuneLv, dict(stats)
@@ -159,13 +163,16 @@ def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, 
     name = info[0][0]
     
     if name in echoesID:
-        try:
-            rarity = info[1][0]
-        except:
+        if len(info) > 1:
+            rarity = info[1]
+        else:
             rarity = getRarity(echoCard)
             _cache[echoHash].append(rarity)
         
         if rarity >= cfg.get(cfg.echoMinRarity):
+            if len(info[0]) <= 2:
+                logger.debug("Echo level OCR was incomplete for %s", name)
+                return True
             levelText = info[0][2]
             
             try: level = int(levelText)
