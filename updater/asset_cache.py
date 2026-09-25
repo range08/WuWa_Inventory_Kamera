@@ -116,6 +116,38 @@ class AssetCache:
             "reused": reused,
         }
 
+    def _reusable_manifest_files(
+        self,
+        provider: UIAssetProvider,
+        revision: str,
+    ) -> dict:
+        manifest_path = self.root / self.MANIFEST_NAME
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (
+            FileNotFoundError,
+            json.JSONDecodeError,
+            UnicodeDecodeError,
+            OSError,
+        ):
+            return {}
+
+        if not isinstance(manifest, dict) or manifest.get("schema_version") != 1:
+            return {}
+
+        source = manifest.get("source")
+        if not isinstance(source, dict):
+            return {}
+        if source.get("repository") != provider.repository:
+            return {}
+        if source.get("ref") != provider.ref:
+            return {}
+        if source.get("revision") != revision:
+            return {}
+
+        files = manifest.get("files")
+        return files if isinstance(files, dict) else {}
+
     def _fetch_revision(self, provider: UIAssetProvider) -> str:
         try:
             payload = self.fetcher(provider.revision_url())
