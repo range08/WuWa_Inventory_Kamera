@@ -371,4 +371,4 @@ def echoScraper(
             controller.mouseScroll(screenInfo.scroll.page.y, 1.2)
 
     del _cache
-    return echoes
+    return echoes, reviews
