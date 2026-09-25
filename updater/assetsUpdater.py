@@ -1,5 +1,6 @@
 import json
 import urllib.request
+import urllib.error
 import logging
 from pathlib import Path
 from dataclasses import dataclass
@@ -39,7 +40,7 @@ class AssetsUpdater(QObject):
 		try:
 			with urllib.request.urlopen(urllib.request.Request(url)) as response:
 				return json.loads(response.read().decode())
-		except:
+		except (urllib.error.URLError, json.JSONDecodeError, UnicodeDecodeError, OSError):
 			return {}
 	
 	def run(self) -> None:
