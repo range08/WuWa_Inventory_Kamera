@@ -77,7 +77,7 @@ class ArikatsuDataProvider:
         if not language or "/" in language or "\\" in language or ".." in language:
             raise ValueError("Invalid language code")
 
-        return (
+        paths = [
             "README.md",
             "BinData/item/iteminfo.json",
             "BinData/weapon/weaponconf.json",
@@ -86,7 +86,10 @@ class ArikatsuDataProvider:
             "BinData/monster_Info/monsterinfo.json",
             "BinData/achievement/achievement.json",
             f"Textmaps/{language}/multi_text/MultiText.json",
-        )
+        ]
+        if language != "en":
+            paths.append("Textmaps/en/multi_text/MultiText.json")
+        return tuple(paths)
 
     def parse_metadata(self, readme: str) -> SourceMetadata:
         game = self._extract(self._GAME_VERSION_RE, readme, "game version")
