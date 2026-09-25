@@ -85,7 +85,50 @@ class SourceCacheTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             cache = SourceCache(tmp, FakeFetcher(payloads))
             with self.assertRaises(SourceCacheError):
-                cache.sync(provider, "ko")
+                cache.sync(provider, "ko", allow_cached_fallback=False)
+
+    def test_sync_reuses_valid_cache_for_same_revision(self):
+        provider, _, payloads = self.make_fixture()
+        fetcher = FakeFetcher(payloads)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = SourceCache(tmp, fetcher)
+            manifest_path = cache.sync(provider, "ko")
+
+            fetcher.calls.clear()
+            reused_path = cache.sync(provider, "ko")
+
+            self.assertEqual(reused_path, manifest_path)
+            self.assertEqual(fetcher.calls, [provider.revision_url()])
+
+    def test_sync_falls_back_to_valid_cache_when_revision_lookup_fails(self):
+        provider, _, payloads = self.make_fixture()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = SourceCache(tmp, FakeFetcher(payloads))
+            manifest_path = cache.sync(provider, "ko")
+
+            def failing_fetcher(url):
+                raise SourceCacheError("offline")
+
+            offline_cache = SourceCache(tmp, failing_fetcher)
+            reused_path = offline_cache.sync(provider, "ko")
+
+            self.assertEqual(reused_path, manifest_path)
+            self.assertEqual(
+                offline_cache.latest_valid(provider, "ko"),
+                manifest_path,
+            )
+
+    def test_latest_valid_rejects_other_language(self):
+        provider, _, payloads = self.make_fixture()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = SourceCache(tmp, FakeFetcher(payloads))
+            cache.sync(provider, "ko")
+
+            with self.assertRaises(SourceCacheError):
+                cache.latest_valid(provider, "en")
 
 
 if __name__ == "__main__":
