@@ -2,6 +2,8 @@ import sys
 import json
 import string
 from pathlib import Path
+
+from scraping.rover import ROVER_ELEMENTS, ROVER_GENDERS
 from qfluentwidgets import (
 	qconfig, QConfig, ConfigValidator,
 	ConfigItem, OptionsConfigItem, BoolValidator,
@@ -118,6 +120,18 @@ class Config(QConfig):
 	inventoryKeybind = OptionsConfigItem('InGame', 'InventoryKeybind', 'B', OptionsValidator(alphabethList()))
 	resonatorKeybind = OptionsConfigItem('InGame', 'ResonatorKeybind', 'C', OptionsValidator(alphabethList()))
 	roverName = ConfigItem('InGame', 'RoverName', 'Rover', TextValidator(max_length=maxLength))
+	roverGender = OptionsConfigItem(
+		'InGame',
+		'RoverGender',
+		'Female',
+		OptionsValidator(list(ROVER_GENDERS)),
+	)
+	roverElement = OptionsConfigItem(
+		'InGame',
+		'RoverElement',
+		'Spectro',
+		OptionsValidator(list(ROVER_ELEMENTS)),
+	)
 
 	# LControlPanel settings
 	scanCharacters = ConfigItem("Scanner", "ScanCharacters", False, BoolValidator())
