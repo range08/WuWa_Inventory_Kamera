@@ -5,4 +5,4 @@ opencv-python==4.12.0.88
 PyWinCtl==0.4.1
 PyMonCtl==0.92
 cx_freeze==8.4.1
-babel==2.17.0
+pywin32
