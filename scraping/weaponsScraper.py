@@ -13,6 +13,12 @@ from scraping.matching import (
     WEAPON_INVENTORY_NAME_CUTOFF,
     best_match,
 )
+from scraping.parsing import (
+    ScanParseError,
+    ascension_from_level_cap,
+    parse_level_pair,
+    parse_quantity,
+)
 
 # Constants
 ROWS, COLS = 4, 6
@@ -34,8 +40,8 @@ def getWeaponPages(screenInfo: ScreenInfo) -> int:
 def processItem(name: str, valueText: str) -> tuple[str, int]:
     itemID = itemsID[name]['id']
     try:
-        value = int(valueText)
-    except ValueError as exc:
+        value = parse_quantity(valueText)
+    except ScanParseError as exc:
         raise ValueError(
             f"Unable to parse item quantity from weapon inventory: {valueText!r}"
         ) from exc
@@ -43,12 +49,20 @@ def processItem(name: str, valueText: str) -> tuple[str, int]:
 
 def processWeapon(name: str, levelText: str, rankText: str) -> dict[str, dict[str, int]]:
     weaponID = weaponsID[name]['id']
-    level = levelText.split('/')
+    try:
+        level, levelCap = parse_level_pair(levelText)
+        ascension = ascension_from_level_cap(levelCap, WEAPON_ASCENSION_LEVELS)
+        rank = int(rankText)
+    except (ScanParseError, TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Unable to parse weapon values: level={levelText!r}, rank={rankText!r}"
+        ) from exc
+
     return {
         weaponID: {
-            'level': int(level[0]),
-            'ascension': WEAPON_ASCENSION_LEVELS.index(int(level[1])),
-            'rank': int(rankText)
+            'level': level,
+            'ascension': ascension,
+            'rank': rank
         }
     }
 
@@ -107,7 +121,14 @@ def processGridItem(inventory: dict, weapons: list, image: np.ndarray, screenInf
                 levelText = imageToString(levelImage, profile=LEVEL_PROFILE)
                 _cache[levelHash] = levelText
             
-            if int(levelText.split('/')[0]) >= cfg.get(cfg.weaponsMinLevel):
+            try:
+                currentLevel, _ = parse_level_pair(levelText)
+            except ScanParseError as exc:
+                raise ValueError(
+                    f"Unable to parse weapon level from OCR result: {levelText!r}"
+                ) from exc
+
+            if currentLevel >= cfg.get(cfg.weaponsMinLevel):
                 rankImage = image[screenInfo.weapons.rank.y:screenInfo.weapons.rank.y + screenInfo.weapons.rank.h, screenInfo.weapons.rank.x:screenInfo.weapons.rank.x + screenInfo.weapons.rank.w]
                 rankImage = convertToBlackWhite(rankImage)
                 rankHash = hash(rankImage.tobytes())
