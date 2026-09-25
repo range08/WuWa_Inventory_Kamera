@@ -13,6 +13,7 @@ from scraping.utils import (
 )
 from game.screenInfo import ScreenInfo
 from properties.config import cfg
+from scraping.cancellation import check_cancelled
 from scraping.ocr_engine import (
     LEVEL_PROFILE,
     STAT_NAME_PROFILE,
@@ -235,10 +236,11 @@ def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, 
 
     return True
 
-def echoScraper(controller: WindowsInputController, x: float, y: float, screenInfo: ScreenInfo) -> tuple[dict[str, int], list[dict[str, dict[str, int]]]]:
+def echoScraper(controller: WindowsInputController, x: float, y: float, screenInfo: ScreenInfo, cancel_event=None) -> tuple[dict[str, int], list[dict[str, dict[str, int]]]]:
     echoes = list()
     _cache = dict()
 
+    check_cancelled(cancel_event)
     controller.pressKey(cfg.get(cfg.inventoryKeybind), 2, False)
     controller.leftClick(x, y)
 
@@ -246,8 +248,10 @@ def echoScraper(controller: WindowsInputController, x: float, y: float, screenIn
     continueScraping = False
 
     for page in range(pages):
+        check_cancelled(cancel_event)
         for row in range(ROWS):
             for col in range(COLS):
+                check_cancelled(cancel_event)
                 global_index = page * (ROWS * COLS) + row * COLS + col
                 if global_index >= echoCount:
                     del _cache
