@@ -31,6 +31,7 @@ BinData/
   item/iteminfo.json
   weapon/weaponconf.json
   role/roleinfo.json
+  main_role_change/mainroleconfig.json
   monster_Info/monsterinfo.json
   achievement/achievement.json
 Textmaps/
@@ -57,9 +58,24 @@ python -m tools.update_game_data --language en --ref 3.6
 The command:
 
 1. resolves the selected upstream ref to a concrete 40-character Git commit SHA;
-2. downloads only the required source inputs into the ignored `data/source/` cache;
-3. writes a manifest containing game/resource versions, changelist, revision, sizes, and SHA-256 hashes;
-4. validates every cached file against the manifest;
-5. generates the legacy-compatible scanner mappings into `data/`.
+2. downloads only the required source inputs into the ignored `data/source/` cache, isolated by exact revision and language;
+3. writes a source manifest containing game/resource versions, changelist, revision, sizes, and SHA-256 hashes;
+4. validates every cached file against the source manifest;
+5. generates the legacy-compatible scanner mappings into `data/`;
+6. writes `data/mapping_manifest.json` with the exact source identity and generated-file hashes/counts.
 
-The raw source cache and generated data remain ignored by git.
+When the resolved source revision and language are unchanged, validated raw source files are reused instead of being downloaded again, and valid generated mappings are reused instead of re-parsing the large MultiText file.
+
+Explicit offline reuse:
+
+```powershell
+python -m tools.update_game_data --language ko --ref 3.6 --offline
+```
+
+Force mapping regeneration from the selected source cache:
+
+```powershell
+python -m tools.update_game_data --language ko --ref 3.6 --force
+```
+
+The raw source cache and generated data remain ignored by git. Real upstream validation is available through the manual `Game Data Smoke` GitHub Actions workflow so large game data is not downloaded on every pull request.
