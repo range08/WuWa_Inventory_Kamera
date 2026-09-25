@@ -83,7 +83,7 @@ class SettingInterface(ScrollArea):
 		)
 		self.roverGender = ComboBoxSettingCard(
 			cfg.roverGender,
-			FIF.PEOPLE,
+			FIF.FONT_SIZE,
 			self.tr('Rover Gender'),
 			self.tr('Select the Rover variant used by your account'),
 			list(ROVER_GENDERS),
@@ -91,7 +91,7 @@ class SettingInterface(ScrollArea):
 		)
 		self.roverElement = ComboBoxSettingCard(
 			cfg.roverElement,
-			FIF.TAG,
+			FIF.LANGUAGE,
 			self.tr('Rover Element'),
 			self.tr('Select the Rover element currently shown in the Resonator list'),
 			list(ROVER_ELEMENTS),
