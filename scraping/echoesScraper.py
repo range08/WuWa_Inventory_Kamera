@@ -201,7 +201,8 @@ def echoScraper(controller: WindowsInputController, x: float, y: float, screenIn
     for page in range(pages):
         for row in range(ROWS):
             for col in range(COLS):
-                if page == pages - 1 and (page * (ROWS * COLS) + row * COLS + col) > (page * 24) + (echoCount % 24):
+                global_index = page * (ROWS * COLS) + row * COLS + col
+                if global_index >= echoCount:
                     del _cache
                     return echoes
                 center_x = screenInfo.echoes.start.x + (col * (screenInfo.echoes.start.w + screenInfo.offsets.page.x)) + screenInfo.echoes.start.w // 2
