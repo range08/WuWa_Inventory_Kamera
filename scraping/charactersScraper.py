@@ -33,17 +33,18 @@ SKILL_LEGENDS = {
     4: 'intro'
 }
 ASCENSION_LEVELS = [20, 40, 50, 60, 70, 80, 90]
+MAX_RESONATOR_VIEWPORTS = 128
 
-def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, _cache: dict) -> tuple[str, bool]:
+def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, nameCache: dict, _cache: dict) -> tuple[str, bool]:
     resonatorNameImage = image[screenInfo.characters.resonatorName.y:screenInfo.characters.resonatorName.y + screenInfo.characters.resonatorName.h, screenInfo.characters.resonatorName.x:screenInfo.characters.resonatorName.x + screenInfo.characters.resonatorName.w]
     resonatorNameImage = convertToBlackWhite(resonatorNameImage)
     resonatorNameHash = hash(resonatorNameImage.tobytes())
 
-    if resonatorNameHash in _cache:
-        return None, True
+    if resonatorNameHash in nameCache:
+        resonatorID = nameCache[resonatorNameHash]
     else:
         resonatorName = imageToString(resonatorNameImage, profile=NAME_PROFILE).lower()
-    
+
         result = best_match(
             resonatorName,
             charactersID,
@@ -51,7 +52,7 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
         )
         if result:
             resonatorName = result
-        
+
         roverName = cfg.get(cfg.roverName).replace(' ', '').lower()
         if resonatorName == roverName:
             resonatorID = '1502'
@@ -61,7 +62,7 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
             raise ValueError(
                 f"Unable to identify resonator from OCR result: {resonatorName!r}"
             )
-        _cache[resonatorNameHash] = resonatorID
+        nameCache[resonatorNameHash] = resonatorID
 
     if resonatorID in characters:
         return resonatorID, True
@@ -253,28 +254,51 @@ def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo)
         )
     )
     _cache = dict()
+    nameCache = dict()
 
     controller.pressKey(cfg.get(cfg.resonatorKeybind), 2, False)
 
-    isDouble = False
     xLeftSide, yLeftSide = screenInfo.characters.leftSide.x, screenInfo.characters.leftSide.y
     xRightSide, yRightSide = screenInfo.characters.rightSide.x, screenInfo.characters.rightSide.y
 
-    while not isDouble:
+    for _ in range(MAX_RESONATOR_VIEWPORTS):
+        newResonators = 0
+
         for resonatorIndex in range(7):
-            controller.leftClick(xRightSide, yRightSide + (screenInfo.characters.offsets.rightSide.y * resonatorIndex), .7)
+            controller.leftClick(
+                xRightSide,
+                yRightSide + (screenInfo.characters.offsets.rightSide.y * resonatorIndex),
+                .7,
+            )
             resonatorID = str()
+            alreadySeen = False
 
             for section in range(5):
-                controller.leftClick(xLeftSide, yLeftSide + (screenInfo.characters.offsets.leftSide.y * section), .8)
+                controller.leftClick(
+                    xLeftSide,
+                    yLeftSide + (screenInfo.characters.offsets.leftSide.y * section),
+                    .8,
+                )
 
-                image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor, bw=True)
+                image = screenshot(
+                    width=screenInfo.width,
+                    height=screenInfo.height,
+                    monitor=screenInfo.monitor,
+                    bw=True,
+                )
 
                 match(section):
                     case 0:
-                        resonatorID, isDouble = scrapeResonator(image, screenInfo, characters, _cache)
-                        if isDouble:
+                        resonatorID, alreadySeen = scrapeResonator(
+                            image,
+                            screenInfo,
+                            characters,
+                            nameCache,
+                            _cache,
+                        )
+                        if alreadySeen:
                             break
+                        newResonators += 1
                     case 1:
                         scrapeWeapon(image, screenInfo, characters, resonatorID, _cache)
                     case 2:
@@ -283,45 +307,18 @@ def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo)
                         scrapeSkills(controller, screenInfo, characters, resonatorID, _cache)
                     case 4:
                         scrapeChain(controller, screenInfo, characters, resonatorID, _cache)
+
                 time.sleep(.5)
 
-            if isDouble:
-                break
-
-        if isDouble:
-            break
+        # Overlapping scroll positions can repeat some characters. Only stop
+        # once an entire seven-slot viewport contains no unseen resonator.
+        if newResonators == 0:
+            return dict(characters)
 
         controller.moveMouse(xRightSide, yRightSide, .3)
         controller.mouseScroll(screenInfo.scroll.characters.y, .5)
-    
-    # Process last page
-    for resonatorIndex in range(6, -1, -1):
-        controller.leftClick(xRightSide, yRightSide + (screenInfo.characters.offsets.rightSide.y * resonatorIndex), .7)
-        resonatorID = str()
-        
-        for section in range(5):
-            controller.leftClick(xLeftSide, yLeftSide + (screenInfo.characters.offsets.leftSide.y * section), .8)
 
-            image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor, bw=True)
+    raise RuntimeError(
+        f"Character scanner exceeded {MAX_RESONATOR_VIEWPORTS} viewports without detecting the end of the resonator list."
+    )
 
-            match(section):
-                case 0:
-                    resonatorID, isDouble = scrapeResonator(image, screenInfo, characters, _cache)
-                    del _cache
-                    return dict(characters)
-                case 1:
-                    scrapeWeapon(image, screenInfo, characters, resonatorID, _cache)
-                case 2:
-                    pass  # Skip echoes for now
-                case 3:
-                    scrapeSkills(controller, screenInfo, characters, resonatorID, _cache)
-                case 4:
-                    scrapeChain(controller, screenInfo, characters, resonatorID, _cache)
-
-            time.sleep(.5)
-        
-        if isDouble:
-            break
-    
-    del _cache
-    return dict(characters)
