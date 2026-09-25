@@ -147,8 +147,8 @@ Start with 1920x1080 fullscreen.
 - [ ] Verify all five active skills.
 - [ ] Verify inherent/stat nodes.
 - [ ] Verify all six resonance-chain nodes.
-- [ ] Improve end-of-list detection.
-- [ ] Prevent duplicate characters.
+- [x] Improve resonator end-of-list detection so overlapping scroll viewports do not terminate on the first duplicate.
+- [x] Prevent duplicate character processing by resolving cached name cards to IDs and skipping already-scanned resonators.
 - [ ] Store OCR confidence/debug metadata outside compatibility export.
 
 ## Phase 9 — Weapon scanner
