@@ -20,22 +20,37 @@ from scraping.parsing import (
     parse_level_pair,
     parse_quantity,
 )
+from scraping.retry import retry_call
 
 # Constants
 ROWS, COLS = 4, 6
 WEAPON_ASCENSION_LEVELS = [20, 40, 50, 60, 70, 80, 90]
 
 def getWeaponPages(screenInfo: ScreenInfo) -> int:
-    image = convertToBlackWhite(screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor)[screenInfo.weapons.page.y:screenInfo.weapons.page.y + screenInfo.weapons.page.h, screenInfo.weapons.page.x:screenInfo.weapons.page.x + screenInfo.weapons.page.w])
-    weaponCountText = imageToString(
-        image, profile=LEVEL_PROFILE
-    ).split('/')[0]
-    try:
-        weaponCount = int(weaponCountText)
-    except ValueError as exc:
-        raise ValueError(
-            f"Unable to parse weapon inventory count: {weaponCountText!r}"
-        ) from exc
+    def read_count() -> int:
+        image = screenshot(
+            width=screenInfo.width,
+            height=screenInfo.height,
+            monitor=screenInfo.monitor,
+        )[
+            screenInfo.weapons.page.y:
+            screenInfo.weapons.page.y + screenInfo.weapons.page.h,
+            screenInfo.weapons.page.x:
+            screenInfo.weapons.page.x + screenInfo.weapons.page.w,
+        ]
+        image = convertToBlackWhite(image)
+        weaponCountText = imageToString(
+            image,
+            profile=LEVEL_PROFILE,
+        ).split('/')[0]
+        try:
+            return int(weaponCountText)
+        except ValueError as exc:
+            raise ValueError(
+                f"Unable to parse weapon inventory count: {weaponCountText!r}"
+            ) from exc
+
+    weaponCount = retry_call(read_count, attempts=3, delay_seconds=0.2)
     return weaponCount, int(np.ceil(weaponCount / 24))
 
 def processItem(name: str, valueText: str) -> tuple[str, int]:
