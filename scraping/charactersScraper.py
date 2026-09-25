@@ -44,7 +44,15 @@ def scrapeResonator(image: np.ndarray, screenInfo: ScreenInfo, characters: dict,
         if result:
             resonatorName = result[0]
         
-        resonatorID = '1502' if resonatorName == cfg.get(cfg.roverName).replace(' ', '').lower() else charactersID.get(resonatorName, resonatorName)
+        roverName = cfg.get(cfg.roverName).replace(' ', '').lower()
+        if resonatorName == roverName:
+            resonatorID = '1502'
+        elif resonatorName in charactersID:
+            resonatorID = charactersID[resonatorName]
+        else:
+            raise ValueError(
+                f"Unable to identify resonator from OCR result: {resonatorName!r}"
+            )
         _cache[resonatorNameHash] = resonatorID
 
     if resonatorID in characters:
@@ -87,7 +95,11 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
         if result:
             weaponName = result[0]
         
-        weaponID = weaponsID.get(weaponName, {'id': weaponName})['id']
+        if weaponName not in weaponsID:
+            raise ValueError(
+                f"Unable to identify equipped weapon from OCR result: {weaponName!r}"
+            )
+        weaponID = weaponsID[weaponName]['id']
         _cache[weaponNameHash] = weaponID
     
     levelImage = image[screenInfo.characters.weaponLevel.y:screenInfo.characters.weaponLevel.y + screenInfo.characters.weaponLevel.h, screenInfo.characters.weaponLevel.x:screenInfo.characters.weaponLevel.x + screenInfo.characters.weaponLevel.w]
