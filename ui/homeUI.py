@@ -61,7 +61,7 @@ class HomeInterface(QWidget):
 
 			image_label = PixmapLabel()
 			try: image = QImage(FAILED[0]['image'])
-			except: image = QImage('')
+			except (KeyError, TypeError): image = QImage('')
 			pixmap = QPixmap.fromImage(image)
 			image_label.setPixmap(pixmap)
 			image_label.setScaledContents(True)
