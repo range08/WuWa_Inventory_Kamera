@@ -16,6 +16,9 @@ _ASSIGNMENT_PATTERN = re.compile(
     r"authorization"
     r")\b(\s*[:=]\s*)([^\s,;]+)"
 )
+_AUTH_BEARER_PATTERN = re.compile(
+    r"(?i)(\bauthorization\b\s*[:=]\s*bearer\s+)[^\s,;]+"
+)
 _BEARER_PATTERN = re.compile(r"(?i)\bBearer\s+[^\s,;]+")
 
 
@@ -24,6 +27,10 @@ def redact_log_text(text: str) -> str:
     if not isinstance(text, str):
         text = str(text)
 
+    text = _AUTH_BEARER_PATTERN.sub(
+        lambda match: f"{match.group(1)}<redacted>",
+        text,
+    )
     text = _ASSIGNMENT_PATTERN.sub(
         lambda match: f"{match.group(1)}{match.group(2)}<redacted>",
         text,
