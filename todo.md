@@ -96,7 +96,7 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 - [x] Add separate profiles for names, integer quantities, level current/max, percentages, and Korean text.
 - [ ] Add multiple preprocessing candidates.
 - [x] Normalize Unicode, spaces, and punctuation.
-- [ ] Use field-specific fuzzy-match thresholds.
+- [x] Use independently configurable fuzzy-match thresholds for resonators, equipped weapons, weapon inventory entries, items, and echoes.
 - [x] Never substitute an unrecognized item with quantity 1 without flagging it.
 - [ ] Save failed OCR crops with metadata.
 - [ ] Add a review queue for uncertain OCR results.
