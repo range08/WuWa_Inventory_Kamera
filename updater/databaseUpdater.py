@@ -11,7 +11,7 @@ from updater.mapping_generator import (
     generate_from_cache,
     generated_mappings_current,
 )
-from updater.providers import ArikatsuDataProvider
+from updater.providers import ArikatsuDataProvider, DEFAULT_GAME_DATA_REF
 from updater.source_cache import SourceCache, SourceCacheError
 
 logger = logging.getLogger("DatabaseManager")
@@ -27,7 +27,10 @@ class DataUpdater(QObject):
     def __init__(self):
         super().__init__()
         self.lang = LANGUAGES.get(cfg.get(cfg.gameLanguage), "en")
-        self.source_ref = os.environ.get("WUWA_DATA_REF", "3.6").strip() or "3.6"
+        self.source_ref = (
+            os.environ.get("WUWA_DATA_REF", DEFAULT_GAME_DATA_REF).strip()
+            or DEFAULT_GAME_DATA_REF
+        )
         self.data_dir = Path(basePATH) / "data"
 
     def run(self):
