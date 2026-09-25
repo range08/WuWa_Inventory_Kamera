@@ -9,8 +9,47 @@ from pathlib import Path
 from typing import Any
 
 
+class ExportSecurityError(ValueError):
+    """Raised when an export contains a credential-like field."""
+
+
+SENSITIVE_EXPORT_KEYS = frozenset({
+    "oauthcode",
+    "accesstoken",
+    "refreshtoken",
+    "authorization",
+    "password",
+    "passwd",
+    "cookie",
+    "credential",
+    "credentials",
+    "secret",
+    "clientsecret",
+})
+
+
+def _normalized_key(value: Any) -> str:
+    return "".join(ch for ch in str(value).lower() if ch.isalnum())
+
+
+def assert_no_sensitive_fields(data: Any, path: str = "$") -> None:
+    """Reject credential-like dictionary keys anywhere in an export payload."""
+    if isinstance(data, dict):
+        for key, value in data.items():
+            normalized = _normalized_key(key)
+            if normalized in SENSITIVE_EXPORT_KEYS:
+                raise ExportSecurityError(
+                    f"Sensitive export field is not allowed at {path}.{key}"
+                )
+            assert_no_sensitive_fields(value, f"{path}.{key}")
+    elif isinstance(data, (list, tuple)):
+        for index, value in enumerate(data):
+            assert_no_sensitive_fields(value, f"{path}[{index}]")
+
+
 def encode_json(data: Any) -> bytes:
     """Serialize scanner output deterministically without changing its schema."""
+    assert_no_sensitive_fields(data)
     return (
         json.dumps(
             data,
