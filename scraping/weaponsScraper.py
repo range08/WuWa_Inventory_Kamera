@@ -7,6 +7,7 @@ from scraping.utils import (
 )
 from game.screenInfo import ScreenInfo
 from properties.config import cfg
+from scraping.cancellation import check_cancelled
 from scraping.ocr_engine import INTEGER_PROFILE, LEVEL_PROFILE, NAME_PROFILE
 from scraping.matching import (
     ITEM_NAME_CUTOFF,
@@ -142,11 +143,12 @@ def processGridItem(inventory: dict, weapons: list, image: np.ndarray, screenInf
         return True
     return True
 
-def weaponScraper(controller: WindowsInputController, x: float, y: float, screenInfo: ScreenInfo) -> tuple[dict[str, int], list[dict[str, dict[str, int]]]]:
+def weaponScraper(controller: WindowsInputController, x: float, y: float, screenInfo: ScreenInfo, cancel_event=None) -> tuple[dict[str, int], list[dict[str, dict[str, int]]]]:
     inventory = dict()
     weapons = list()
     _cache = dict()
 
+    check_cancelled(cancel_event)
     controller.pressKey(cfg.get(cfg.inventoryKeybind), 2, False)
     controller.leftClick(x, y)
 
@@ -154,8 +156,10 @@ def weaponScraper(controller: WindowsInputController, x: float, y: float, screen
     continueScraping = False
 
     for page in range(pages):
+        check_cancelled(cancel_event)
         for row in range(ROWS):
             for col in range(COLS):
+                check_cancelled(cancel_event)
                 global_index = page * (ROWS * COLS) + row * COLS + col
                 if global_index >= weaponCount:
                     del _cache
