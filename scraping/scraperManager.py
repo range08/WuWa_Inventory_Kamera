@@ -15,6 +15,10 @@ from scraping.charactersScraper import resonatorScraper
 from scraping.weaponsScraper import weaponScraper
 from scraping.echoesScraper import echoScraper
 from scraping.achievementsScraper import achievementScraper
+from scraping.account_export import (
+    build_account_export,
+    build_validation_report,
+)
 from scraping.cancellation import ScanCancelled, check_cancelled
 from scraping.result_protocol import ScraperMessageError, parse_scraper_message
 from scraping.scan_metadata import build_scan_metadata
@@ -316,13 +320,37 @@ def scrapers(
         scanMetadata = build_scan_metadata(
             basePATH / 'data' / 'mapping_manifest.json'
         )
-        savingScraped({
+        validationReport = build_validation_report(
+            selected_scanners=scraperEnabled,
+            inventory=inventory,
+            characters=resonator,
+            weapons=weapons,
+            echoes=echoes,
+            achievements=achievements,
+            failed_count=len(failed),
+        )
+
+        scannedData = {
             'characters_wuwainventorykamera.json': (resonator, dict),
             'weapons_wuwainventorykamera.json': (weapons, list),
             'echoes_wuwainventorykamera.json': (echoes, list),
             'achievements_wuwainventorykamera.json': (achievements, list),
             'scan_metadata.json': (scanMetadata, dict),
-        }, START_DATE)
+            'validation_report.json': (validationReport, dict),
+        }
+        if not failed:
+            accountExport = build_account_export(
+                metadata=scanMetadata,
+                validation=validationReport,
+                inventory=inventory,
+                characters=resonator,
+                weapons=weapons,
+                echoes=echoes,
+                achievements=achievements,
+            )
+            scannedData['account.json'] = (accountExport, dict)
+
+        savingScraped(scannedData, START_DATE)
 
         queue.put({'type': 'complete'})
 
