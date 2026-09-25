@@ -12,6 +12,7 @@ from updater.mapping_generator import (
     generate_weapons,
     generate_from_cache,
     generated_mappings_current,
+    image_filename,
     load_textmap,
     normalize_name,
 )
@@ -62,9 +63,31 @@ class MappingGeneratorTests(unittest.TestCase):
         self.assertEqual(characters, {"changli": 1205})
         self.assertEqual(weapons["blazingbrilliance"]["id"], 21020064)
         self.assertEqual(weapons["blazingbrilliance"]["rarity"], 5)
+        self.assertEqual(
+            weapons["blazingbrilliance"]["image"],
+            "IconWeapon/T_IconWeapon21020064_UI.png",
+        )
         self.assertEqual(items["basicresonancepotion"]["id"], 43010001)
+        self.assertEqual(
+            items["basicresonancepotion"]["image"],
+            "IconA/T_Item_UI.png",
+        )
         self.assertEqual(echoes, {"dreamless": 340000070})
         self.assertEqual(achievements, {"A Moment for the Ages": 1001})
+
+    def test_image_filename_preserves_nested_ui_resource_path(self):
+        self.assertEqual(
+            image_filename(
+                "/Game/Aki/UI/UIResources/Common/Image/"
+                "IconA/Activity/Activity31/T_Test_UI.T_Test_UI"
+            ),
+            "IconA/Activity/Activity31/T_Test_UI.png",
+        )
+        self.assertEqual(
+            image_filename("/Other/Path/T_Fallback.T_Fallback"),
+            "T_Fallback.png",
+        )
+        self.assertEqual(image_filename(""), "")
 
     def test_textmap_accepts_current_id_content_array(self):
         with tempfile.TemporaryDirectory() as tmp:
