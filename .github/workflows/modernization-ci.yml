@@ -1,0 +1,30 @@
+name: Modernization CI
+
+on:
+  push:
+    branches:
+      - "modernize/**"
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-unit:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile Python sources
+        run: python -m compileall -q .
+
+      - name: Run dependency-free unit tests
+        run: python -m unittest discover -s tests -v
