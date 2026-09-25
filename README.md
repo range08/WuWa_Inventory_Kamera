@@ -98,6 +98,16 @@ python -m tools.capture_diagnostics main-menu
 
 Each run creates a timestamped directory under `logs/diagnostics/` containing only named ROI PNG files plus `manifest.json` with resolution, DPI, bounds, and any layout warning. Review captures before sharing them.
 
+For calibration without saving any pixels at all, show a temporary live overlay:
+
+```powershell
+python -m tools.roi_overlay inventory-weapons
+python -m tools.roi_overlay inventory-echoes --seconds 20
+python -m tools.roi_overlay resonator-overview
+```
+
+The overlay is click-through, stays on top briefly, and exits automatically. It currently requires 100% Windows display scaling so its physical-pixel coordinates match the scanner ROIs.
+
 The updater records the exact upstream revision, game/resource versions, file hashes, and generated mapping hashes. Raw upstream game-data files stay in the ignored local cache and are not vendored into this repository.
 
 ## OCR troubleshooting
