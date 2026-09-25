@@ -157,13 +157,13 @@ Start with 1920x1080 fullscreen.
 - [ ] Verify equipped/locked states.
 - [ ] Verify rarity/level filters.
 - [ ] Preserve duplicate weapon copies.
-- [ ] Verify max-level ascension mapping.
+- [x] Verify max-level ascension mapping with shared level-cap parsing tests, including level cap 90 -> ascension 6.
 - [x] Preserve unknown/low-confidence weapon inventory entries as privacy-minimized review crops plus JSON sidecars while continuing the remaining weapon scan.
 
 ## Phase 10 — Echo scanner
 
 - [ ] Verify current 3.6 echo card layout.
-- [ ] Update current sonata/set names.
+- [x] Generate current sonata/set names from `PhantomFetter_*_Name` in the selected Global TextMap; verified through the real 3.6 Korean data-generation smoke.
 - [ ] Verify current main stat combinations and all substat aliases.
 - [ ] Verify rarity, tune level, locked/favorited/equipped states.
 - [ ] Avoid collapsing distinct identical-stat echoes.
