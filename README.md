@@ -3,26 +3,32 @@
 WuWa Inventory Kamera is a tool designed to scan and manage data for the game Wuthering Waves.  
 The data format is specifically designed for [WuWa Tracker](https://wuwatracker.com), facilitating importing data. *(Please note that I am not affiliated with WuWa Tracker.)*
 
-## Supported Features
-*Note: This tool currently works __only__ in full-screen mode.*
+## Modernization status
 
-- **Supported Screens:**
-  - 1680x1050
+This fork is being updated for the current Global client without using memory reading, DLL injection, packet interception, or anti-cheat bypasses. The scanner remains screen-capture/OCR based.
+
+The game-data pipeline has been verified against Wuthering Waves Global 3.6.0 / Resource 3.6.6 using the Korean text source. End-to-end scanner compatibility with the current 3.6 UI is **not claimed yet**; real 1920x1080 screenshots and live scans are still part of the release gate.
+
+## Current scanner constraints
+
+- Windows only.
+- Windows display scaling must currently be **100%**.
+- The Wuthering Waves client area must fill the entire target monitor.
+- Live automation is accepted only for explicit ROI profiles:
   - 1920x1080
-  - 2560x1440
-  - (other resolutions not tested; may not be compatible)
+  - 1680x1050
+- 2560x1440 is not currently accepted because this fork has no explicit validated ROI profile for it.
+- Korean game-data generation is verified. English is used as a text fallback for missing localized entries. OCR behavior for each in-game language still requires live validation.
 
-- **Supported Languages:**
-  - All (tested only with English)
+## Features
 
-- **Features:**
-  - Scan Characters
-  - Scan Weapons
-  - Scan Echoes
-  - Scan Development Items
-  - Scan Resources
-  - Scan Achievements
-  - Edit/View inventory data
+- Scan Characters
+- Scan Weapons
+- Scan Echoes
+- Scan Development Items
+- Scan Resources
+- Scan Achievements
+- Edit/View inventory data
 
 ## To-Do List
 - [x] Character Scanner (no echo)
@@ -36,6 +42,41 @@ The data format is specifically designed for [WuWa Tracker](https://wuwatracker.
 - [ ] Improve logs
 - [x] Optimize releases size
 - [ ] Rewrite the code (after all tasks are complete)
+
+## Development / local run
+
+Python 3.12, 3.13, and 3.14 have passed the Windows runtime dependency/import smoke test. The current cx_Freeze build is verified with Python 3.14.
+
+PowerShell:
+
+```powershell
+py -3.14 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m tools.update_game_data --language ko --ref 3.6
+python main.py
+```
+
+English game data:
+
+```powershell
+python -m tools.update_game_data --language en --ref 3.6
+```
+
+Offline reuse of the last validated source cache:
+
+```powershell
+python -m tools.update_game_data --language ko --ref 3.6 --offline
+```
+
+Build the Windows executable:
+
+```powershell
+python setup.py build
+```
+
+The updater records the exact upstream revision, game/resource versions, file hashes, and generated mapping hashes. Raw upstream game-data files stay in the ignored local cache and are not vendored into this repository.
 
 ## Tutorial
 
@@ -176,7 +217,7 @@ The data format is specifically designed for [WuWa Tracker](https://wuwatracker.
 
 ## Credits
 - Highly inspired by [Inventory Kamera](https://github.com/Andrewthe13th/Inventory_Kamera) created by [Andrewthe13th](https://github.com/Andrewthe13th)
-- Item IDs sourced from [Dimbreath](https://github.com/Dimbreath/WutheringData)
+- Original updater/data work referenced [Dimbreath](https://github.com/Dimbreath/WutheringData); the modernization pipeline uses [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) as a local Global-client data input without vendoring its raw data
 - Assets sourced from [Stormy Waves](https://github.com/Stormy-Waves/WW_Icon)
 
 ## License
