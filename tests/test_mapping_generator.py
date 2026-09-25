@@ -1,0 +1,97 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from updater.mapping_generator import (
+    MappingGenerationError,
+    generate_achievements,
+    generate_characters,
+    generate_echoes,
+    generate_items,
+    generate_weapons,
+    load_textmap,
+    normalize_name,
+)
+
+
+class MappingGeneratorTests(unittest.TestCase):
+    def setUp(self):
+        self.textmap = {
+            "RoleInfo_1205_Name": "Changli",
+            "WeaponConf_21020064_WeaponName": "Blazing Brilliance",
+            "ItemInfo_43010001_Name": "Basic Resonance Potion",
+            "MonsterInfo_340000070_Name": "Dreamless",
+            "Achievement_1001_Name": "A Moment for the Ages",
+        }
+
+    def test_generates_legacy_compatible_core_mappings(self):
+        characters = generate_characters(
+            [{"Id": 1205, "Name": "RoleInfo_1205_Name"}],
+            self.textmap,
+        )
+        weapons = generate_weapons(
+            [{
+                "ItemId": 21020064,
+                "ModelId": 21020064,
+                "WeaponName": "WeaponConf_21020064_WeaponName",
+                "QualityId": 5,
+                "Icon": "/Game/Aki/UI/UIResources/Common/Image/IconWeapon/T_IconWeapon21020064_UI.T_IconWeapon21020064_UI",
+            }],
+            self.textmap,
+        )
+        items = generate_items(
+            [{
+                "Id": 43010001,
+                "Name": "ItemInfo_43010001_Name",
+                "Icon": "/Game/Aki/UI/UIResources/Common/Image/IconA/T_Item_UI.T_Item_UI",
+            }],
+            self.textmap,
+        )
+        echoes = generate_echoes(
+            [{"Id": 340000070, "Name": "MonsterInfo_340000070_Name"}],
+            self.textmap,
+        )
+        achievements = generate_achievements(
+            [{"Id": 1001, "Name": "Achievement_1001_Name"}],
+            self.textmap,
+        )
+
+        self.assertEqual(characters, {"changli": 1205})
+        self.assertEqual(weapons["blazingbrilliance"]["id"], 21020064)
+        self.assertEqual(weapons["blazingbrilliance"]["rarity"], 5)
+        self.assertEqual(items["basicresonancepotion"]["id"], 43010001)
+        self.assertEqual(echoes, {"dreamless": 340000070})
+        self.assertEqual(achievements, {"A Moment for the Ages": 1001})
+
+    def test_textmap_accepts_current_id_content_array(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "MultiText.json"
+            path.write_text(
+                json.dumps([
+                    {"Id": "RoleInfo_1205_Name", "Content": "Changli"},
+                    {"Id": "ItemInfo_1_Name", "Content": "Item"},
+                ]),
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                load_textmap(path),
+                {"RoleInfo_1205_Name": "Changli", "ItemInfo_1_Name": "Item"},
+            )
+
+    def test_duplicate_normalized_names_fail_closed(self):
+        with self.assertRaises(MappingGenerationError):
+            generate_characters(
+                [
+                    {"Id": 1205, "Name": "A"},
+                    {"Id": 1206, "Name": "B"},
+                ],
+                {"A": "Same Name", "B": "SameName"},
+            )
+
+    def test_normalization_matches_existing_scanner_convention(self):
+        self.assertEqual(normalize_name("Blazing Brilliance"), "blazingbrilliance")
+
+
+if __name__ == "__main__":
+    unittest.main()
