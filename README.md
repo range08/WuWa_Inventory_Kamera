@@ -19,6 +19,7 @@ The game-data pipeline has been verified against Wuthering Waves Global 3.6.0 / 
   - 1680x1050
 - 2560x1440 is not currently accepted because this fork has no explicit validated ROI profile for it.
 - Korean game-data generation is verified. English is used as a text fallback for missing localized entries. OCR behavior for each in-game language still requires live validation.
+- Before scanning Resonators, set **Rover Name**, **Rover Gender**, and **Rover Element** in Settings to match the Rover currently shown in your Resonator list. The scanner no longer assumes a fixed Rover ID.
 
 ## Features
 
