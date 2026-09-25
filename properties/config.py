@@ -135,8 +135,8 @@ class Config(QConfig):
 
 # Application metadata
 HELP_URL = "https://discord.gg/y6b2kMqs"
-FEEDBACK_URL = "https://github.com/Psycho-Marcus/WuWa_Inventory_Kamera/issues"
-RELEASE_URL = "https://github.com/Psycho-Marcus/WuWa_Inventory_Kamera/releases/latest"
+FEEDBACK_URL = "https://github.com/range08/WuWa_Inventory_Kamera/issues"
+RELEASE_URL = "https://github.com/range08/WuWa_Inventory_Kamera/releases/latest"
 
 # Load configuration
 cfg = Config()
