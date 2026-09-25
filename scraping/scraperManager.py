@@ -307,6 +307,12 @@ def scrapers(
             })
 
         check_cancelled(cancelFLAG)
+
+        # Scanning is complete. Stop the focus/keyboard cancellation monitor
+        # before the short atomic-export finalization phase so a late stop key
+        # cannot turn a completed scan into a partially written export set.
+        FLAG.set()
+
         scanMetadata = build_scan_metadata(
             basePATH / 'data' / 'mapping_manifest.json'
         )
@@ -319,7 +325,6 @@ def scrapers(
         }, START_DATE)
 
         queue.put({'type': 'complete'})
-        FLAG.set()
 
     except ScanCancelled:
         logger.info("Scanner process acknowledged cancellation.")
