@@ -8,7 +8,7 @@ from scraping.utils import (
     echoesID, echoStats, sonataName
 )
 from scraping.utils import (
-    screenshot, imageToString, convertToBlackWhite,
+    screenshot, imageToResult, imageToString, convertToBlackWhite,
     WindowsInputController
 )
 from game.screenInfo import ScreenInfo
@@ -18,6 +18,7 @@ from scraping.ocr_engine import (
     LEVEL_PROFILE,
     STAT_NAME_PROFILE,
     STAT_VALUE_PROFILE,
+    require_confidence,
 )
 from scraping.matching import ECHO_NAME_CUTOFF, best_match
 from scraping.parsing import ScanParseError, parse_stat_value
@@ -181,7 +182,11 @@ def getSonata(controller: WindowsInputController, screenInfo: ScreenInfo, _cache
         if sonataHash in _cache:
             return _cache[sonataHash]
 
-        ocrText = imageToString(image, '', bannedChars=' ').lower()
+        sonataResult = require_confidence(
+            imageToResult(image, '', bannedChars=' '),
+            field="echo-sonata",
+        )
+        ocrText = sonataResult.text.lower()
         for name in sonataName:
             if name in ocrText:
                 _cache[sonataHash] = name
@@ -205,7 +210,11 @@ def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, 
     if echoHash in _cache:
         info = _cache[echoHash]
     else:
-        info = [imageToString(echoCard, '', bannedChars=' +').lower().split('\n')]
+        echoCardResult = require_confidence(
+            imageToResult(echoCard, '', bannedChars=' +'),
+            field="echo-card",
+        )
+        info = [echoCardResult.text.lower().split('\n')]
         _cache[echoHash] = info
     name = info[0][0]
     result = best_match(name, echoesID, cutoff=ECHO_NAME_CUTOFF)
