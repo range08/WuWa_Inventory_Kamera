@@ -7,7 +7,7 @@ import multiprocessing
 from queue import Empty
 from datetime import datetime
 
-from properties.config import FAILED, INVENTORY
+from properties.config import FAILED, INVENTORY, basePATH
 from scraping.utils import (
     WindowsInputController, savingScraped
 )
@@ -19,6 +19,7 @@ from scraping.weaponsScraper import weaponScraper
 from scraping.echoesScraper import echoScraper
 from scraping.achievementsScraper import achievementScraper
 from scraping.result_protocol import ScraperMessageError, parse_scraper_message
+from scraping.scan_metadata import build_scan_metadata
 
 from game.menu import MainMenuController
 from game.screenInfo import ScreenInfo
@@ -272,11 +273,15 @@ def scrapers(
                 'failed': failed,
             })
 
+        scanMetadata = build_scan_metadata(
+            basePATH / 'data' / 'mapping_manifest.json'
+        )
         savingScraped({
             'characters_wuwainventorykamera.json': (resonator, dict),
             'weapons_wuwainventorykamera.json': (weapons, list),
             'echoes_wuwainventorykamera.json': (echoes, list),
             'achievements_wuwainventorykamera.json': (achievements, list),
+            'scan_metadata.json': (scanMetadata, dict),
         }, START_DATE)
 
         queue.put({'type': 'complete'})
