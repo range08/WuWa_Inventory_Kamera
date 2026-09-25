@@ -81,3 +81,17 @@ Real data exposed two classes of ambiguity that fixture-only tests had missed:
 - unrelated internal items can share the same localized visible string, including placeholder/error text. OCR-visible mappings now remove ambiguous names instead of choosing an arbitrary ID.
 
 Weapon and Echo final-page boundaries were also corrected to stop at `global_index >= total_count`, which handles exact multiples of 24 correctly.
+
+
+## Additional correctness hardening
+
+- Added strict source-record validation for RoleInfo, WeaponConf, ItemInfo, MonsterInfo, Achievement, and main-role configuration inputs. Malformed records now fail with `MappingGenerationError` instead of being silently skipped.
+- Added fail-closed checks that reject empty generated scanner mappings.
+- Added dependency-free tests for malformed source data and empty mappings.
+- Reworked scraper subprocess result handling so inventory chunks, manual-review failures, normal completion, cancellation, and fatal errors are distinct message types.
+- Parent process now consumes queue messages while the scanner child is alive, avoiding a potential multiprocessing pipe/join deadlock on larger inventories.
+- Recognition failures are sent separately from inventory chunks, so they are not lost when no inventory item was successfully recognized.
+- Added a cancellation event so user cancellation/game-focus loss is not misreported as success.
+- Added per-scanner exception context (for example, `weapons scanner failed: ...`) before propagating failures to the UI.
+- Removed several remaining plausible-value OCR fallbacks: invalid character/skill/weapon values, weapon and echo counts, echo stat values/rarity/level, and Shell Credit now fail closed rather than being stored as 0/1/24 defaults.
+- Modernization CI passed after these changes on the latest modernization head.
