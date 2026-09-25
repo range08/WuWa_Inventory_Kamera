@@ -3,7 +3,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scraping.exporter import encode_json, write_json_atomic
+from scraping.exporter import (
+    ExportSecurityError,
+    encode_json,
+    write_json_atomic,
+)
 
 
 class ExporterTests(unittest.TestCase):
@@ -22,6 +26,25 @@ class ExporterTests(unittest.TestCase):
             json.loads(payload.decode("utf-8")),
             [{"id": 2}, {"id": 1}],
         )
+
+    def test_rejects_sensitive_fields_at_any_depth(self):
+        for key in (
+            "oauthCode",
+            "access_token",
+            "refresh-token",
+            "password",
+            "clientSecret",
+        ):
+            with self.subTest(key=key):
+                with self.assertRaises(ExportSecurityError):
+                    encode_json({"nested": [{key: "must-not-export"}]})
+
+    def test_normal_non_sensitive_keys_are_allowed(self):
+        payload = encode_json({
+            "scanner_version": "1.7.1",
+            "game_data": {"revision": "abc", "language": "ko"},
+        })
+        self.assertIn(b"scanner_version", payload)
 
     def test_atomic_writer_creates_parent_and_valid_json(self):
         with tempfile.TemporaryDirectory() as tmp:
