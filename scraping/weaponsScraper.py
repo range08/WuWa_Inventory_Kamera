@@ -16,18 +16,25 @@ WEAPON_ASCENSION_LEVELS = [20, 40, 50, 60, 70, 80, 90]
 
 def getWeaponPages(screenInfo: ScreenInfo) -> int:
     image = convertToBlackWhite(screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor)[screenInfo.weapons.page.y:screenInfo.weapons.page.y + screenInfo.weapons.page.h, screenInfo.weapons.page.x:screenInfo.weapons.page.x + screenInfo.weapons.page.w])
-    weaponCount = imageToString(image, '', allowedChars=string.digits + '/').split('/')[0]
+    weaponCountText = imageToString(
+        image, '', allowedChars=string.digits + '/'
+    ).split('/')[0]
     try:
-        return int(weaponCount), int(np.ceil(int(weaponCount) / 24))
-    except ValueError:
-        return 24, 1
+        weaponCount = int(weaponCountText)
+    except ValueError as exc:
+        raise ValueError(
+            f"Unable to parse weapon inventory count: {weaponCountText!r}"
+        ) from exc
+    return weaponCount, int(np.ceil(weaponCount / 24))
 
 def processItem(name: str, valueText: str) -> tuple[str, int]:
     itemID = itemsID[name]['id']
     try:
         value = int(valueText)
-    except ValueError:
-        value = 1
+    except ValueError as exc:
+        raise ValueError(
+            f"Unable to parse item quantity from weapon inventory: {valueText!r}"
+        ) from exc
     return itemID, value
 
 def processWeapon(name: str, levelText: str, rankText: str) -> dict[str, dict[str, int]]:
