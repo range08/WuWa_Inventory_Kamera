@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from tools.capture_diagnostics import ROI_GROUPS
+from game.diagnostic_rois import ROI_GROUPS
 
 
 def resolve_dotted_attribute(root: Any, dotted_path: str) -> Any:
