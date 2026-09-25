@@ -76,6 +76,27 @@ Build the Windows executable:
 python setup.py build
 ```
 
+### No-click ROI diagnostics
+
+For current-game calibration, manually open the requested game screen and capture only the scanner regions. The diagnostic command does not click, type, or save a full-screen screenshot.
+
+Examples:
+
+```powershell
+python -m tools.capture_diagnostics inventory-weapons
+python -m tools.capture_diagnostics inventory-echoes
+python -m tools.capture_diagnostics inventory-items
+python -m tools.capture_diagnostics resonator-overview
+python -m tools.capture_diagnostics resonator-weapon
+python -m tools.capture_diagnostics resonator-skills
+python -m tools.capture_diagnostics resonator-chain
+python -m tools.capture_diagnostics achievements
+python -m tools.capture_diagnostics shell-credit
+python -m tools.capture_diagnostics main-menu
+```
+
+Each run creates a timestamped directory under `logs/diagnostics/` containing only named ROI PNG files plus `manifest.json` with resolution, DPI, bounds, and any layout warning. Review captures before sharing them.
+
 The updater records the exact upstream revision, game/resource versions, file hashes, and generated mapping hashes. Raw upstream game-data files stay in the ignored local cache and are not vendored into this repository.
 
 ## Tutorial
