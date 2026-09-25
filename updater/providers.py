@@ -82,6 +82,7 @@ class ArikatsuDataProvider:
             "BinData/item/iteminfo.json",
             "BinData/weapon/weaponconf.json",
             "BinData/role/roleinfo.json",
+            "BinData/main_role_change/mainroleconfig.json",
             "BinData/monster_Info/monsterinfo.json",
             "BinData/achievement/achievement.json",
             f"Textmaps/{language}/multi_text/MultiText.json",
