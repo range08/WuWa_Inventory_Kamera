@@ -222,3 +222,57 @@ The same workflow then ran the updater in explicit offline mode and reported `re
 - Added explicit Rover Gender and Rover Element settings while keeping Female/Spectro as the legacy-compatible default.
 - Current Global 3.6 main-role variant IDs are mapped for Spectro, Havoc, Aero, and Electro for both genders.
 - Character scanning resolves the configured Rover variant rather than guessing from the user-defined Rover display name.
+
+
+## Fresh-install and packaged-runtime verification
+
+- Fresh Install Smoke run `36119576256` succeeded on Windows from a clean repository state with no tracked `data/` directory.
+- The workflow created a new Python 3.14 virtual environment, installed pinned dependencies, verified imports before generated data existed, generated real Global 3.6 Korean mappings from empty state, loaded the mappings into the explicit data store, constructed the Qt main window with the offscreen platform, and compiled the project.
+- The heavy fresh-install workflow was returned to manual-only execution after verification to avoid repeated large external data downloads on every PR commit.
+- Build Smoke now builds the Python 3.14 cx_Freeze executable and runs `WuWa Inventory Kamera.exe --smoke-test`; the packaged runtime smoke succeeded.
+- Dependency Smoke now constructs the actual Qt main window on Python 3.12, 3.13, and 3.14 rather than only importing the class.
+
+## Generated data-store hardening
+
+- Removed import-time reads of generated mapping JSON files.
+- Added an explicit in-memory generated-data store whose dict/list object identities remain stable across reloads.
+- Reload validates every mapping before mutating any live scanner container, preventing a partial mixed-version state when one generated file is malformed.
+- Added nested validation for item/weapon records and typed accessors for common item/weapon/character/Echo/achievement lookups.
+- Added unit coverage for stable-container reloads, atomic failure behavior, nested record validation, and typed accessors.
+
+## Cooperative cancellation and UI recovery
+
+- Added a scanner-wide cooperative cancellation primitive.
+- Character, weapon, Echo, item/resource, and achievement loops now check the shared cancel event at bounded points.
+- The stop monitor requests cancellation rather than immediately killing the scanner process.
+- The parent allows a 4-second grace period for the child to unwind and execute its `finally` UI cleanup before using hard process termination as a fallback.
+- Export finalization becomes non-cancellable once scanning has completed so a late stop-key press cannot leave a partially finalized scan.
+
+## OCR review artifacts and confidence fallback
+
+- Low-confidence OCR can now retry thresholded and inverted preprocessing candidates while retaining the original result when it is better.
+- Candidate recognition stops early when a confident non-empty result is found and otherwise chooses the best lower-confidence result.
+- Failed item OCR crops now have paired JSON review sidecars with scanner name, reason, image fingerprint, OCR text, OCR confidence, OCR profile, token count, owned quantity when known, and explicit privacy flags.
+- The manual-review UI accepts unknown quantities, supports larger quantities, and deletes resolved PNG/JSON review artifacts.
+- Diagnostic capture remains no-click and saves only named scanner ROIs rather than full-screen images.
+
+## Rover variant correctness
+
+- Removed the hard-coded Rover ID 1502 behavior.
+- Added explicit Rover Gender and Rover Element settings using the current Global 3.6 main-role configuration IDs for Female/Male × Spectro/Havoc/Aero/Electro.
+- The legacy behavior remains the default through Female + Spectro = 1502, but users can now select the actual variant before a Resonator scan.
+
+## Additive export and security layer
+
+- Legacy WuWa Tracker export filenames and data shapes remain unchanged.
+- Added separate `scan_metadata.json` with scanner version, scan time, game/resource versions, source revision, language, and source identity.
+- Added `validation_report.json` with selected scanners, per-section counts, and manual-review status.
+- Added optional `account.json`; it is emitted only when there are no pending manual-review items.
+- JSON export is deterministic, UTF-8, and atomic.
+- The export writer recursively rejects credential-like field names such as `oauthCode`, access/refresh tokens, authorization, passwords, and client secrets before any file is written.
+
+## CI correctness coverage
+
+- Added pinned Ruff correctness lint (`E9,F63,F7,F82`) to the fast Windows CI.
+- The lint immediately caught a missing `sys` import in the packaged-runtime smoke entrypoint; the defect was fixed before proceeding.
+- Real Global-data smoke, fresh-install smoke, dependency/import/UI smoke, and packaged executable smoke remain separate from the fast dependency-free unit/lint checks.
