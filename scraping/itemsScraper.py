@@ -10,6 +10,7 @@ from scraping.utils import (
 )
 from game.screenInfo import ScreenInfo
 from properties.config import cfg, basePATH
+from scraping.cancellation import check_cancelled
 from scraping.matching import ITEM_NAME_CUTOFF, best_match
 from scraping.parsing import ScanParseError, parse_quantity
 
@@ -60,7 +61,7 @@ def processItem(path: Path, image: np.ndarray, screenInfo: ScreenInfo, _cache: d
 
     return inventory, failed, name, infoFingerprint
 
-def itemsScraper(START_DATE: str, controller: WindowsInputController, x: int, y: int, screenInfo: ScreenInfo):
+def itemsScraper(START_DATE: str, controller: WindowsInputController, x: int, y: int, screenInfo: ScreenInfo, cancel_event=None):
     path: Path = basePATH / 'logs' / 'fail' / START_DATE
 
     inventory = dict()
@@ -69,14 +70,17 @@ def itemsScraper(START_DATE: str, controller: WindowsInputController, x: int, y:
     seenFingerprints = set()
     seenViewports = set()
 
+    check_cancelled(cancel_event)
     controller.pressKey(cfg.get(cfg.inventoryKeybind), 2, False)
     controller.leftClick(x, y)
 
     for _ in range(MAX_VIEWPORTS):
+        check_cancelled(cancel_event)
         viewportFingerprints = []
 
         for row in range(ROWS):
             for col in range(COLS):
+                check_cancelled(cancel_event)
                 center_x = screenInfo.items.start.x + (col * (screenInfo.items.start.w + screenInfo.offsets.page.x)) + screenInfo.items.start.w // 2
                 center_y = screenInfo.items.start.y + (row * (screenInfo.items.start.h + screenInfo.offsets.page.y)) + screenInfo.items.start.h // 2
 
