@@ -176,8 +176,8 @@ Start with 1920x1080 fullscreen.
 - [ ] Verify duplicate grid behavior.
 - [x] Replace `ceil(quantity / 999)` page-termination heuristic with viewport fingerprint detection.
 - [x] Add explicit grid/end detection with a repeated-viewport signature and bounded 256-viewport safety limit.
-- [ ] Ensure commas/punctuation do not corrupt quantities.
-- [ ] Preserve unknown items for manual review.
+- [x] Ensure commas/spacing/punctuation do not corrupt quantities through the shared quantity parser and regression tests.
+- [x] Preserve unknown/unreadable items for manual review without fabricating a quantity; the review UI now supports an explicit Unknown state.
 - [ ] Test newly added materials.
 
 ## Phase 12 — Export schema
@@ -202,7 +202,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Add unit tests for normalization, fuzzy matching, level/quantity/stat parsing, ascension calculation, and data transforms.
 - [ ] Add screenshot fixture tests for every scanner.
 - [ ] Add Korean and English regression coverage.
-- [ ] Add export schema tests.
+- [x] Add legacy inventory export validation tests covering metadata keys, numeric IDs, invalid roots, and invalid quantities.
 - [x] Add malformed/partial OCR tests.
 - [x] Add offline updater/cache-reuse tests.
 - [ ] Ensure tests do not require the game installed.
