@@ -183,6 +183,7 @@ def scrapers(
     queue: multiprocessing.Queue,
     START_DATE: str,
 ):
+    controller = None
     try:
         controller = WindowsInputController(screenInfo.monitor)
         resonator = dict()
@@ -249,8 +250,6 @@ def scrapers(
                     f"{scraper} scanner failed: {exc}"
                 ) from exc
 
-        controller.pressKey('esc')
-
         chunkSize = 20
         inventoryItems = list(inventory.items())
 
@@ -286,3 +285,12 @@ def scrapers(
             })
         finally:
             FLAG.set()
+    finally:
+        if controller is not None:
+            try:
+                controller.pressKey('esc')
+            except Exception:
+                logger.warning(
+                    "Failed to restore game UI after scanner exit.",
+                    exc_info=True,
+                )
