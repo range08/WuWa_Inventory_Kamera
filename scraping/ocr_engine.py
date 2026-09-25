@@ -154,8 +154,13 @@ class OCREngine:
 
         if isinstance(raw, tuple):
             entries = raw[0]
-        elif isinstance(raw, list) and len(raw) == 2 and isinstance(raw[0], list):
-            # RapidOCR commonly returns [results, elapsed] / (results, elapsed).
+        elif (
+            isinstance(raw, list)
+            and len(raw) == 2
+            and isinstance(raw[0], list)
+            and isinstance(raw[1], (int, float))
+        ):
+            # Some adapters may expose RapidOCR's (results, elapsed) as a list.
             entries = raw[0]
         else:
             entries = raw
