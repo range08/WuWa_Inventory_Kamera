@@ -167,7 +167,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Verify current main stat combinations and all substat aliases.
 - [ ] Verify rarity, tune level, locked/favorited/equipped states.
 - [ ] Avoid collapsing distinct identical-stat echoes.
-- [ ] Compare robust approaches used by maintained echo OCR tools without copying incompatible code/licenses.
+- [x] Compare maintained Echo OCR approaches in `docs/ECHO_OCR_RESEARCH.md`; retain only high-level design observations and copy no external source/templates/assets.
 
 ## Phase 11 — Item/resource scanner
 
