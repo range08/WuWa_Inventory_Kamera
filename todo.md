@@ -99,7 +99,7 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 - [x] Use independently configurable fuzzy-match thresholds for resonators, equipped weapons, weapon inventory entries, items, and echoes.
 - [x] Never substitute an unrecognized item with quantity 1 without flagging it.
 - [x] Save failed item OCR description crops with paired JSON metadata containing failure reason, OCR text/confidence, fingerprint, and privacy flags.
-- [ ] Add a review queue for uncertain OCR results. Item and weapon inventory entries now route low-confidence/unknown OCR to review; character/Echo field-level review queues remain pending.
+- [x] Add review handling for uncertain OCR where scanning can safely continue: item, weapon, and Echo inventory entries route unknown/low-confidence results to privacy-minimized review artifacts; critical character state remains fail-closed.
 - [ ] Avoid saving UID/account-identifying screenshot regions unless explicitly needed.
 
 ## Phase 5 — Wuthering Waves 3.6 UI/ROI validation
@@ -247,7 +247,7 @@ Do not publish a compatibility claim until:
 - [ ] English character scan passes.
 - [ ] Weapons, Echoes, Development Items, Resources pass.
 - [ ] Export files validate.
-- [ ] No secrets appear in logs/export.
+- [x] No credential-like secrets are allowed in exports, and application logs redact oauthCode/access-refresh tokens/passwords/client secrets/Authorization Bearer values including exception tracebacks.
 - [x] OCR failures are surfaced instead of silently guessed; item/weapon uncertainty is queued for review and other invalid scanner fields fail closed.
 - [x] GPL-3.0 and upstream/Inventory Kamera attribution are preserved.
 - [x] README lists the verified data-source versions: Global 3.6.0 / Resource 3.6.6, while keeping live scanner compatibility claims gated on real UI validation.
