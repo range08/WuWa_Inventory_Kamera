@@ -5,6 +5,7 @@ from scraping.parsing import (
     ascension_from_level_cap,
     parse_level_pair,
     parse_quantity,
+    parse_stat_value,
 )
 
 
@@ -36,6 +37,18 @@ class ScannerParsingTests(unittest.TestCase):
     def test_unknown_ascension_cap_fails_closed(self):
         with self.assertRaises(ScanParseError):
             ascension_from_level_cap(100, [20, 40, 50, 60, 70, 80, 90])
+
+
+    def test_stat_values_preserve_percentage_semantics(self):
+        self.assertEqual(parse_stat_value("22.0%"), (22.0, True))
+        self.assertEqual(parse_stat_value("150"), (150, False))
+        self.assertEqual(parse_stat_value("1,234"), (1234, False))
+
+    def test_invalid_stat_values_fail_closed(self):
+        for value in ("", "%", "abc", "1.2"):
+            with self.subTest(value=value):
+                with self.assertRaises(ScanParseError):
+                    parse_stat_value(value)
 
 
 if __name__ == "__main__":
