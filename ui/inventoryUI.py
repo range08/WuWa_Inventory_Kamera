@@ -16,9 +16,13 @@ from qfluentwidgets import (
 
 from ui.custom_widgets.widget import MultiplePushSettingCard
 from properties.config import cfg, basePATH
+from scraping.data_store import (
+    find_item_by_display_name,
+    find_item_by_id,
+    get_item,
+)
 from scraping.export_schema import ExportValidationError, normalize_inventory_payload
 from scraping.exporter import write_json_atomic
-from scraping.utils.common import itemsID
 
 logger = logging.getLogger('InventoryInterface')
 
@@ -216,14 +220,8 @@ class InventoryInterface(ScrollArea):
 	def _getItemIDByName(self, item_name: str):
 		"""Resolve a localized display name back to its item ID."""
 		normalized = ''.join(item_name.split()).lower()
-		info = itemsID.get(normalized)
-		if info is not None:
-			return info.get('id')
-
-		for candidate in itemsID.values():
-			if candidate.get('name') == item_name:
-				return candidate.get('id')
-		return None
+		info = get_item(normalized) or find_item_by_display_name(item_name)
+		return info["id"] if info is not None else None
 
 	def _getItemInfoByID(self, item_id: int):
 		"""Retrieve item image and name by its ID."""
@@ -232,7 +230,7 @@ class InventoryInterface(ScrollArea):
 		except (TypeError, ValueError):
 			return None
 
-		for info in itemsID.values():
-			if info.get('id') == numeric_id:
-				return info.get('image', ''), info.get('name', str(numeric_id))
-		return None
+		info = find_item_by_id(numeric_id)
+		if info is None:
+			return None
+		return info["image"], info["name"]
