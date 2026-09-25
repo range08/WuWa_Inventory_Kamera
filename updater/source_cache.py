@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import json
 import os
 import tempfile
@@ -16,6 +17,8 @@ from typing import Callable
 from updater.providers import ArikatsuDataProvider
 
 Fetcher = Callable[[str], bytes]
+
+logger = logging.getLogger("SourceCache")
 
 
 class SourceCacheError(RuntimeError):
@@ -70,10 +73,17 @@ class SourceCache:
 
         try:
             return self._sync_remote(provider, language)
-        except (SourceCacheError, OSError):
+        except (SourceCacheError, OSError) as exc:
             if not allow_cached_fallback:
                 raise
-            return self.latest_valid(provider, language)
+
+            cached = self.latest_valid(provider, language)
+            logger.warning(
+                "Remote game-data sync failed; using validated local cache %s: %s",
+                cached,
+                exc,
+            )
+            return cached
 
     def _sync_remote(
         self,
