@@ -1,15 +1,6 @@
 name: Build Smoke
 
 on:
-  pull_request:
-    branches:
-      - master
-    paths:
-      - "requirements.txt"
-      - "setup.py"
-      - "version.py"
-      - "assets/**"
-      - ".github/workflows/build-smoke.yml"
   workflow_dispatch:
 
 permissions:
