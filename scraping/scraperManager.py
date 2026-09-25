@@ -275,7 +275,9 @@ def scrapers(
 
                 if scraper not in ['characters', 'achievements']:
                     if '2' not in inventory or inventory.get('2') == 0:
+                        check_cancelled(cancelFLAG)
                         shell = getShell(screenInfo)
+                        check_cancelled(cancelFLAG)
                         inventory = {**shell, **inventory}
             except ScanCancelled:
                 raise
@@ -297,6 +299,7 @@ def scrapers(
                 'inventory': chunk,
             })
 
+        check_cancelled(cancelFLAG)
         if failed:
             queue.put({
                 'type': 'failed',
