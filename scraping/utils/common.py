@@ -7,6 +7,7 @@ import win32clipboard
 from pathlib import Path
 
 from properties.config import cfg, INVENTORY
+from scraping.exporter import write_json_atomic
 from scraping.ocr_engine import (
     OCREngine,
     OCRError,
@@ -53,8 +54,7 @@ def savingScraped(scannedData: dict | None = None, START_DATE: str = ''):
         for filename, (data, emptyType) in scannedData.items():
             if data != emptyType():
                 filePATH = savePATH / filename
-                with open(filePATH, 'w', encoding='utf-8') as f:
-                    json.dump(data, f)
+                write_json_atomic(filePATH, data)
 
 def screenshot(left: int = 0, top: int = 0, width: int = 0, height: int = 0, monitor: int = 1, bw: bool = False):
 
