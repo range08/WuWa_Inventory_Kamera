@@ -121,10 +121,28 @@ def imageToResult(
         )
 
     try:
-        return ocrEngine.recognize(image, profile)
+        primary = ocrEngine.recognize(image, profile)
     except OCRError:
-        logger.debug("OCR failed", exc_info=True)
-        return OCRResult.empty(profile.name)
+        logger.debug("Primary OCR attempt failed", exc_info=True)
+        primary = OCRResult.empty(profile.name)
+
+    if primary.text and primary.confidence >= 0.85:
+        return primary
+
+    try:
+        processed = convertToBlackWhite(image)
+        retry = ocrEngine.recognize_candidates(
+            [processed, cv2.bitwise_not(processed)],
+            profile,
+            accept_confidence=0.85,
+        )
+    except (OCRError, ValueError, cv2.error):
+        logger.debug("OCR preprocessing fallback failed", exc_info=True)
+        return primary
+
+    if retry.text and retry.confidence > primary.confidence:
+        return retry
+    return primary
 
 
 def imageToString(
