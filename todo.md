@@ -17,7 +17,7 @@ Design goal: avoid hard-coding the project to 3.6 so that 3.7+ updates are mostl
 ## Phase 0 — Establish a reproducible baseline
 
 - [x] Create a modernization branch, suggested name: `modernize/latest`.
-- [ ] Record the upstream commit SHA used as the baseline.
+- [x] Record the upstream commit SHA used as the baseline: `7b5ecf4eca355d3f4a06fb0d65e8419d1f984883`.
 - [ ] Confirm the application starts on a clean Windows 11 environment.
 - [ ] Record the Python version actually supported by the dependency set.
 - [ ] Create a virtual environment and install dependencies from scratch.
@@ -38,10 +38,10 @@ Design goal: avoid hard-coding the project to 3.6 so that 3.7+ updates are mostl
 
 ## Phase 1 — Fix known correctness bugs before modernization
 
-- [ ] Fix `scraping/charactersScraper.py` cache lookup bug in `scrapeSkills()`:
+- [x] Fix `scraping/charactersScraper.py` cache lookup bug in `scrapeSkills()`:
   - Current code reads `_cache[button]` when `buttonHash` is the cache key.
   - Correct behavior must read `_cache[buttonHash]`.
-- [ ] Audit all cache reads/writes for mismatched keys.
+- [x] Audit cache reads/writes across the six scanner modules for mismatched keys.
 - [ ] Replace broad `except:` blocks in scanner-critical paths with explicit exceptions and logging.
 - [ ] Audit mutable default arguments such as `loadFile(..., default={})`.
 - [ ] Ensure OCR failure cannot silently become a plausible value such as level 1 or quantity 1 without an error marker.
