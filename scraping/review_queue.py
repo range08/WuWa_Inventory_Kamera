@@ -43,6 +43,7 @@ def write_review_metadata(
     crop_file: str,
     ocr_result: OCRResult,
     owned: int | None,
+    candidate: str | None = None,
 ) -> None:
     """Write metadata beside a failed OCR crop without account identifiers."""
     if not scanner or not reason or not fingerprint or not crop_file:
@@ -55,6 +56,7 @@ def write_review_metadata(
         "fingerprint": fingerprint,
         "crop_file": crop_file,
         "owned": owned,
+        "candidate": candidate,
         "ocr": {
             "text": ocr_result.text,
             "confidence": ocr_result.confidence,
