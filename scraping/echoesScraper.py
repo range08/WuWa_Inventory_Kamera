@@ -19,6 +19,7 @@ from scraping.ocr_engine import (
     STAT_VALUE_PROFILE,
 )
 from scraping.matching import ECHO_NAME_CUTOFF, best_match
+from scraping.parsing import ScanParseError, parse_stat_value
 
 logger = logging.getLogger('EchoScraper')
 
@@ -137,14 +138,14 @@ def processStats(image: np.ndarray, screenInfo: ScreenInfo, _cache: dict) -> dic
         else: stat = 'sub'
         
         try:
-            if statValue.endswith('%'):
-                stats[stat].update({f"{statName}%": float(statValue[:-1])})
-            else:
-                stats[stat].update({statName: int(statValue)})
-        except (AttributeError, TypeError, ValueError) as exc:
+            value, isPercentage = parse_stat_value(statValue)
+        except ScanParseError as exc:
             raise ValueError(
                 f"Unable to parse echo stat value {statValue!r} for {statName!r}"
             ) from exc
+
+        key = f"{statName}%" if isPercentage else statName
+        stats[stat].update({key: value})
 
     return tuneLv, dict(stats)
 
