@@ -1,6 +1,7 @@
 # Modernization audit notes
 
 Baseline repository: `Psycho-Marcus/WuWa_Inventory_Kamera`
+Baseline commit: `7b5ecf4eca355d3f4a06fb0d65e8419d1f984883`
 
 ## Confirmed observations
 
@@ -21,3 +22,9 @@ In `scraping/charactersScraper.py`, `scrapeSkills()` checks `buttonHash in _cach
 ## Release strategy
 
 Do not claim 3.6 compatibility based only on data regeneration. Current-game ROI and end-to-end scanning must be verified, especially Korean UI at 1920x1080.
+
+
+## Phase 1 progress
+
+- Fixed the skill-button OCR cache to read and write with `buttonHash`.
+- Audited cache access patterns in `charactersScraper.py`, `weaponsScraper.py`, `echoesScraper.py`, `itemsScraper.py`, `achievementsScraper.py`, and `shellScraper.py`; no additional mismatched cache-key use was found by inspection.
