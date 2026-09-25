@@ -75,7 +75,7 @@ def itemsScraper(START_DATE: str, controller: WindowsInputController, x: int, y:
     controller.leftClick(x, y)
 
     for _ in range(MAX_VIEWPORTS):
-        viewportNames = []
+        viewportFingerprints = []
 
         for row in range(ROWS):
             for col in range(COLS):
@@ -89,13 +89,13 @@ def itemsScraper(START_DATE: str, controller: WindowsInputController, x: int, y:
                     monitor=screenInfo.monitor,
                 )
 
-                item_inventory, item_failed, name, fingerprint = processItem(
+                item_inventory, item_failed, _, fingerprint = processItem(
                     path,
                     image,
                     screenInfo,
                     _cache,
                 )
-                viewportNames.append(name)
+                viewportFingerprints.append(fingerprint)
 
                 # Scrolling can leave part of the previous viewport visible.
                 # Only commit a detail card once; repeated cards are overlap,
@@ -108,7 +108,7 @@ def itemsScraper(START_DATE: str, controller: WindowsInputController, x: int, y:
                 inventory.update(item_inventory)
                 failed.extend(item_failed)
 
-        viewportSignature = tuple(viewportNames)
+        viewportSignature = tuple(viewportFingerprints)
         if viewportSignature in seenViewports:
             return inventory, failed
 
