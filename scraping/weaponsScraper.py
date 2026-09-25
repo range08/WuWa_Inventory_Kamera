@@ -61,9 +61,11 @@ def processGridItem(inventory: dict, weapons: list, image: np.ndarray, screenInf
         result = getMatches(name, weaponsID, 1, 0.9)
         if not result:
             result = getMatches(name, itemsID, 1, 0.9)
-            if not result:
-                result = [name]
-        
+        if not result:
+            raise ValueError(
+                f"Unable to identify weapon inventory entry from OCR result: {name!r}"
+            )
+
         _cache[nameHash] = result[0]
         name = result[0]
     
