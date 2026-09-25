@@ -1,0 +1,119 @@
+name: Fresh Install Smoke
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "requirements.txt"
+      - "updater/**"
+      - "scraping/data_store.py"
+      - "ui/loadingUI.py"
+      - ".github/workflows/fresh-install-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  clean-windows-install:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up bootstrap Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Verify repository starts without generated data
+        shell: pwsh
+        run: |
+          if (Test-Path data) {
+            throw "Fresh-install smoke expected no tracked data directory."
+          }
+
+      - name: Create isolated virtual environment
+        run: python -m venv .venv
+
+      - name: Install dependencies inside virtual environment
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
+          .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+      - name: Verify imports do not require generated data
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+
+          from scraping.data_store import STORE
+          from ui.mainUI import WuWaInventoryKamera
+          from updater.databaseUpdater import DataUpdater
+
+          assert not Path("data").exists()
+          assert STORE.items == {}
+          assert STORE.characters == {}
+          assert WuWaInventoryKamera is not None
+          assert DataUpdater is not None
+          print("pre-data imports: ok")
+          '@ | .\.venv\Scripts\python.exe -
+
+      - name: Generate real Global 3.6 Korean mappings from empty state
+        run: .\.venv\Scripts\python.exe -m tools.update_game_data --language ko --ref 3.6
+
+      - name: Load generated mappings and construct main window offscreen
+        shell: pwsh
+        run: |
+          @'
+          import json
+          from pathlib import Path
+
+          from PySide6.QtWidgets import QApplication
+
+          from scraping.data_store import STORE, reload_generated_mappings
+          from ui.mainUI import WuWaInventoryKamera
+
+          counts = reload_generated_mappings(Path("data"))
+          minimums = {
+              "items.json": 100,
+              "characters.json": 20,
+              "weapons.json": 50,
+              "echoes.json": 50,
+              "achievements.json": 100,
+          }
+          for filename, minimum in minimums.items():
+              count = counts[filename]
+              print(f"{filename}: {count}")
+              if count < minimum:
+                  raise SystemExit(
+                      f"{filename} has only {count} entries; expected >= {minimum}"
+                  )
+
+          manifest = json.loads(
+              Path("data/mapping_manifest.json").read_text(encoding="utf-8")
+          )
+          source = manifest["source"]
+          assert source["game_version"] == "3.6.0"
+          assert source["language"] == "ko"
+
+          app = QApplication([])
+          window = WuWaInventoryKamera()
+          assert window.windowTitle() == "WuWa Inventory Kamera"
+          window.close()
+          app.quit()
+          print("offscreen main-window construction: ok")
+          '@ | .\.venv\Scripts\python.exe -
+
+      - name: Compile project in isolated environment
+        run: .\.venv\Scripts\python.exe -m compileall -q .
