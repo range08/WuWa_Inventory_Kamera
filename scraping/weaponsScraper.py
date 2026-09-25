@@ -115,7 +115,8 @@ def weaponScraper(controller: WindowsInputController, x: float, y: float, screen
     for page in range(pages):
         for row in range(ROWS):
             for col in range(COLS):
-                if page == pages - 1 and (page * (ROWS * COLS) + row * COLS + col) > (page * 24) + (weaponCount % 24):
+                global_index = page * (ROWS * COLS) + row * COLS + col
+                if global_index >= weaponCount:
                     del _cache
                     return inventory, weapons
 
