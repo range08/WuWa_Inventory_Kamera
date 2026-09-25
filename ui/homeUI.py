@@ -131,8 +131,8 @@ class HomeInterface(QWidget):
 			else:
 				middle_layout.addWidget(
 					BodyLabel(
-						"Weapon entry preserved for review. "
-						"Direct weapon editing is not enabled yet."
+						f"{review_kind.capitalize()} entry preserved for review. "
+						"Direct editing for this review type is not enabled yet."
 					)
 				)
 				middle_layout.addWidget(skip_button)
