@@ -2,7 +2,6 @@ import os
 import cv2
 import logging
 import numpy as np
-from difflib import get_close_matches as getMatches
 from collections import defaultdict
 
 from scraping.utils import (
@@ -19,6 +18,7 @@ from scraping.ocr_engine import (
     STAT_NAME_PROFILE,
     STAT_VALUE_PROFILE,
 )
+from scraping.matching import ECHO_NAME_CUTOFF, best_match
 
 logger = logging.getLogger('EchoScraper')
 
@@ -192,12 +192,12 @@ def processGridEcho(controller: WindowsInputController, screenInfo: ScreenInfo, 
         info = [imageToString(echoCard, '', bannedChars=' +').lower().split('\n')]
         _cache[echoHash] = info
     name = info[0][0]
-    result = getMatches(name, echoesID, 1, 0.9)
-    if not result:
+    result = best_match(name, echoesID, cutoff=ECHO_NAME_CUTOFF)
+    if result is None:
         raise ValueError(
             f"Unable to identify echo from OCR result: {name!r}"
         )
-    name = result[0]
+    name = result
 
     if name in echoesID:
         if len(info) > 1:
