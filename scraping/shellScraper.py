@@ -1,10 +1,10 @@
 import logging
-import string
 
 from scraping.utils import (
     screenshot, imageToString
 )
 from game.screenInfo import ScreenInfo
+from scraping.ocr_engine import INTEGER_PROFILE
 
 logger = logging.getLogger('ShellScraper')
 
@@ -18,7 +18,7 @@ def getShell(screenInfo: ScreenInfo):
     )
 
     image = screenshot(xShell, yShell, wShell, hShell, screenInfo.monitor, True)
-    shellText = imageToString(image, allowedChars=string.digits).strip()
+    shellText = imageToString(image, profile=INTEGER_PROFILE).strip()
 
     try:
         shell = int(shellText)
