@@ -17,10 +17,11 @@ class LoggingRedactionTests(unittest.TestCase):
         self.assertGreaterEqual(redacted.count("<redacted>"), 5)
 
     def test_redacts_bearer_authorization(self):
-        self.assertEqual(
-            redact_log_text("Authorization: Bearer abc.def.ghi"),
-            "Authorization: <redacted> abc.def.ghi",
+        redacted_auth = redact_log_text(
+            "Authorization: Bearer abc.def.ghi"
         )
+        self.assertNotIn("abc.def.ghi", redacted_auth)
+        self.assertIn("Bearer <redacted>", redacted_auth)
         self.assertEqual(
             redact_log_text("request Bearer abc.def.ghi failed"),
             "request Bearer <redacted> failed",
