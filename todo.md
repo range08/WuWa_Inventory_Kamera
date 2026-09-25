@@ -125,7 +125,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Support borderless-windowed if reliable.
 - [ ] Add a calibration/debug ROI overlay.
 - [ ] Add screenshot-only diagnostic mode.
-- [ ] Reject unsupported layouts instead of clicking unsafe coordinates.
+- [x] Reject unsupported layouts before scanner input. Current safe policy requires 100% Windows scaling, a client area filling the entire target monitor, and an explicit ROI resolution.
 
 ## Phase 7 — Scanner state machine and safety
 
