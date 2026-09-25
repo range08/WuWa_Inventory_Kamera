@@ -130,3 +130,13 @@ Weapon and Echo final-page boundaries were also corrected to stop at `global_ind
 - Echo stat parsing now rejects name/value count mismatches instead of truncating through `zip()`.
 - Incomplete echo level OCR now fails closed.
 - Sonata recognition now fails when no known set name is found and restores the scroll position through a `finally` block even on error.
+
+
+## Resonator list termination hardening
+
+- Removed the first-duplicate termination behavior from the resonator scanner.
+- Resonator-name image hashes now resolve through a dedicated name cache instead of sharing duplicate semantics with unrelated OCR cache entries.
+- Duplicate resonators in overlapping scroll viewports are skipped individually while later slots are still inspected.
+- Scanning now ends only after a complete seven-slot viewport contains no unseen resonator.
+- Removed the reverse-order last-page recovery pass, which is no longer needed with viewport-level termination.
+- Added a bounded 128-viewport guard to fail closed if the UI never reaches a stable end state.
