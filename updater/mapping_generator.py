@@ -89,11 +89,27 @@ def _validate_records(
 
 
 def image_filename(asset_path: str) -> str:
+    """Return the legacy assets-relative PNG path for a game UI texture.
+
+    Example:
+    /Game/Aki/UI/UIResources/Common/Image/IconA/Foo.T_Foo
+    -> IconA/Foo.png
+
+    Keeping the directory component is required because assets with the same
+    filename can live in different UI resource folders and the inventory UI
+    resolves paths relative to the local assets directory.
+    """
     if not asset_path:
         return ""
-    leaf = asset_path.rsplit("/", 1)[-1]
-    stem = leaf.split(".", 1)[0]
-    return f"{stem}.png" if stem else ""
+
+    marker = "/UIResources/Common/Image/"
+    if marker in asset_path:
+        relative = asset_path.split(marker, 1)[1]
+    else:
+        relative = asset_path.rsplit("/", 1)[-1]
+
+    relative = relative.split(".", 1)[0].strip("/")
+    return f"{relative}.png" if relative else ""
 
 
 def _localized(textmap: dict[str, str], key: Any) -> str | None:
