@@ -67,7 +67,7 @@ def managerStart(scraperEnabled: list):
 			while True:
 				try:
 					queue.get_nowait()
-				except:
+				except (multiprocessing.queues.Empty, OSError, ValueError):
 					break
 					
 		except Exception as e:
