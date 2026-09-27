@@ -30,6 +30,7 @@ from scraping.retry import retry_call
 from scraping.record_collection import append_distinct_copy
 from scraping.review_queue import (
     DEFAULT_REVIEW_CONFIDENCE,
+    review_artifact_stem,
     write_review_metadata,
 )
 
@@ -270,7 +271,11 @@ def processGridEcho(
 
     if reviewReasons:
         review_path.mkdir(parents=True, exist_ok=True)
-        stem = f"echo-{echoFingerprint[:16]}"
+        stem = review_artifact_stem(
+            "echo",
+            echoFingerprint,
+            len(reviews),
+        )
         imagePath = review_path / f"{stem}.png"
         metadataPath = review_path / f"{stem}.json"
         if not imagePath.exists():

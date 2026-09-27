@@ -100,6 +100,7 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 - [x] Never substitute an unrecognized item with quantity 1 without flagging it.
 - [x] Save failed item OCR description crops with paired JSON metadata containing failure reason, OCR text/confidence, fingerprint, and privacy flags.
 - [x] Add review handling for uncertain OCR where scanning can safely continue: item, weapon, and Echo inventory entries route unknown/low-confidence results to privacy-minimized review artifacts; critical character state remains fail-closed.
+- [x] Keep review crops and sidecars distinct for weapon/Echo queue entries that share the same OCR fingerprint.
 - [x] Avoid persisting UID/account-identifying full-screen captures: review/diagnostic writers save only reviewed narrow ROIs, and fast CI rejects new unapproved `cv2.imwrite` capture paths.
 
 ## Phase 5 — Wuthering Waves 3.6 UI/ROI validation

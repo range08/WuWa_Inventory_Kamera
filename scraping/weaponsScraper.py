@@ -34,6 +34,7 @@ from scraping.retry import retry_call
 from scraping.record_collection import append_distinct_copy
 from scraping.review_queue import (
     DEFAULT_REVIEW_CONFIDENCE,
+    review_artifact_stem,
     write_review_metadata,
 )
 
@@ -64,9 +65,10 @@ def _save_weapon_review(
     ocr_result,
     reasons: tuple[str, ...],
     candidate: str | None,
+    occurrence: int,
 ) -> dict:
     path.mkdir(parents=True, exist_ok=True)
-    stem = f"weapon-{fingerprint[:16]}"
+    stem = review_artifact_stem("weapon", fingerprint, occurrence)
     image_path = path / f"{stem}.png"
     metadata_path = path / f"{stem}.json"
 
@@ -213,6 +215,7 @@ def processGridItem(
                 ocr_result=nameResult,
                 reasons=tuple(reviewReasons),
                 candidate=name,
+                occurrence=len(reviews),
             )
         )
         return True

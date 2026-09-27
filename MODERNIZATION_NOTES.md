@@ -291,3 +291,4 @@ The same workflow then ran the updater in explicit offline mode and reported `re
 - The finalizer removes any prior aggregate first, validates inventory, character, weapon, Echo, and achievement exports, and preflights the additive JSON payloads before writing a complete status.
 - Invalid legacy values or credential-like fields fail closed: the validation report is left unchanged and no aggregate account export remains.
 - Added dependency-free tests for pending-review removal, successful aggregate creation, invalid legacy data, and malformed review counts.
+- Weapon and Echo review crops receive a per-entry occurrence suffix, so identical OCR fingerprints cannot overwrite a different copy's crop or make one review decision delete another entry's evidence.

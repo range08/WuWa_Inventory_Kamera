@@ -6,12 +6,33 @@ from pathlib import Path
 from scraping.ocr_engine import OCRResult, OCRToken
 from scraping.review_queue import (
     DEFAULT_REVIEW_CONFIDENCE,
+    review_artifact_stem,
     review_reasons,
     write_review_metadata,
 )
 
 
 class ReviewQueueTests(unittest.TestCase):
+    def test_review_artifact_stems_keep_identical_copies_separate(self):
+        fingerprint = "a" * 64
+
+        first = review_artifact_stem("weapon", fingerprint, 0)
+        second = review_artifact_stem("weapon", fingerprint, 1)
+
+        self.assertNotEqual(first, second)
+        self.assertTrue(first.startswith("weapon-" + fingerprint[:16]))
+
+    def test_review_artifact_stem_rejects_unsafe_values(self):
+        invalid_values = (
+            ("../weapon", "a" * 64, 0),
+            ("echo", "not-a-fingerprint", 0),
+            ("echo", "a" * 64, -1),
+            ("echo", "a" * 64, True),
+        )
+        for values in invalid_values:
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                review_artifact_stem(*values)
+
     def test_review_policy_accepts_confident_complete_item(self):
         self.assertEqual(
             review_reasons(
