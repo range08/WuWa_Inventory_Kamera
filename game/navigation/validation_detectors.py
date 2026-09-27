@@ -20,9 +20,14 @@ def resolve_roi(screen_info, dotted_path: str):
 class ValidationStateDetector:
     """Use only existing scanner ROIs and field-format evidence."""
 
-    def __init__(self, screen_info):
+    def __init__(self, screen_info, *, language: str | None = None):
         from game.menu import MainMenuController
         from properties.config import cfg
+        from scraping.ocr_engine import (
+            KOREAN_TEXT_PROFILE,
+            OCREngine,
+            is_korean_language,
+        )
         from scraping.data_store import (
             charactersID,
             definedText,
@@ -38,6 +43,10 @@ class ValidationStateDetector:
         self.items = itemsID
         self.weapons = weaponsID
         self.config = cfg
+        self.ocr_engine = OCREngine(language=language)
+        self.localized_text_profile = (
+            KOREAN_TEXT_PROFILE if is_korean_language(language) else None
+        )
         self.main_menu = MainMenuController()
 
     def _crop(self, frame, roi_path: str):
@@ -52,15 +61,17 @@ class ValidationStateDetector:
             raise ValueError(f"Configured ROI is outside the captured frame: {roi_path}")
         return frame[top : top + height, left : left + width]
 
-    @staticmethod
-    def _text_result(image, *, profile=None, banned_chars=None):
+    def _text_result(self, image, *, profile=None, banned_chars=None):
         from scraping.utils import imageToResult
 
         options = {}
+        if profile is None and self.localized_text_profile is not None:
+            profile = self.localized_text_profile
         if profile is not None:
             options["profile"] = profile
         if banned_chars is not None:
             options["bannedChars"] = banned_chars
+        options["ocr_engine"] = self.ocr_engine
         return imageToResult(image, **options)
 
     def _evidence(
@@ -328,14 +339,24 @@ class ValidationStateDetector:
 
         if expected == GameState.MAIN_MENU:
             roi_path = "terminal"
-            evidence = self.main_menu.inspect_image(self._crop(frame, roi_path))
+            from scraping.ocr_engine import NAME_PROFILE
+
+            evidence = self.main_menu.inspect_image(
+                self._crop(frame, roi_path),
+                ocr_engine=self.ocr_engine,
+                profile=self.localized_text_profile or NAME_PROFILE,
+            )
             return StateObservation(
                 expected,
                 evidence["verified"],
                 evidence["detector"],
                 evidence["confidence"],
                 roi_path,
-                {"reason": evidence["reason"]},
+                {
+                    "reason": evidence["reason"],
+                    "ocr_language": self.ocr_engine.language,
+                    "ocr_profile": evidence["ocr_profile"],
+                },
             )
 
         if expected == GameState.SHELL_CREDIT:

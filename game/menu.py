@@ -5,7 +5,7 @@ from difflib import get_close_matches as getMatches
 from game.foreground import WindowManager
 from scraping.utils.common import definedText
 from scraping.utils import screenshot
-from scraping.ocr_engine import NAME_PROFILE
+from scraping.ocr_engine import NAME_PROFILE, OCRProfile
 from scraping.utils import imageToResult
 
 logger = logging.getLogger('MainMenuController')
@@ -14,9 +14,14 @@ class MainMenuController:
     """Handles interactions with the screen and performs actions based on visual content."""
 
     @staticmethod
-    def inspect_image(image) -> dict:
+    def inspect_image(
+        image,
+        *,
+        ocr_engine=None,
+        profile: OCRProfile = NAME_PROFILE,
+    ) -> dict:
         """Return structured OCR evidence for the calibrated Terminal ROI."""
-        result = imageToResult(image, profile=NAME_PROFILE)
+        result = imageToResult(image, profile=profile, ocr_engine=ocr_engine)
         expected = definedText.get('PrefabTextItem_1547656443_Text', '')
         candidates = [value.lower() for value in (expected, 'terminal') if value]
         recognized = bool(
@@ -30,6 +35,7 @@ class MainMenuController:
             'detector': 'terminal-label-ocr',
             'confidence': result.confidence,
             'roi': 'terminal',
+            'ocr_profile': profile.name,
             'reason': None if recognized else 'Terminal label OCR did not match.',
         }
 

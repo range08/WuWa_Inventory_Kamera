@@ -50,6 +50,15 @@ class OCRConfidenceError(OCRError):
 
 
 DEFAULT_MIN_CONFIDENCE = 0.75
+KOREAN_LANGUAGE_CODES = frozenset({"ko", "kr", "korean"})
+
+
+def is_korean_language(language: str | None) -> bool:
+    """Return whether a configured language value identifies Korean."""
+    if not isinstance(language, str):
+        return False
+    normalized = language.strip().casefold().replace("_", "-")
+    return normalized in KOREAN_LANGUAGE_CODES or normalized.startswith("ko-")
 
 
 def require_confidence(
@@ -111,19 +120,42 @@ KOREAN_TEXT_PROFILE = OCRProfile(
 
 
 class OCREngine:
-    def __init__(self, backend: Callable[[Any], Any] | None = None) -> None:
+    def __init__(
+        self,
+        backend: Callable[[Any], Any] | None = None,
+        *,
+        language: str | None = None,
+    ) -> None:
         self._backend = backend
+        self.language = language.strip() if isinstance(language, str) else None
 
     def _get_backend(self) -> Callable[[Any], Any]:
         if self._backend is None:
-            try:
-                from rapidocr import RapidOCR
-            except ImportError:
-                # Compatibility fallback for existing development environments.
-                # New installs use the unified rapidocr package.
-                from rapidocr_onnxruntime import RapidOCR
+            if is_korean_language(self.language):
+                try:
+                    from rapidocr import LangRec, ModelType, OCRVersion, RapidOCR
+                except ImportError as exc:
+                    raise OCRError(
+                        "Korean OCR requires the unified rapidocr package with "
+                        "Korean recognition models."
+                    ) from exc
 
-            self._backend = RapidOCR()
+                self._backend = RapidOCR(
+                    params={
+                        "Rec.ocr_version": OCRVersion.PPOCRV5,
+                        "Rec.lang_type": LangRec.KOREAN,
+                        "Rec.model_type": ModelType.MOBILE,
+                    }
+                )
+            else:
+                try:
+                    from rapidocr import RapidOCR
+                except ImportError:
+                    # Compatibility fallback for existing development environments.
+                    # New installs use the unified rapidocr package.
+                    from rapidocr_onnxruntime import RapidOCR
+
+                self._backend = RapidOCR()
         return self._backend
 
     def recognize(

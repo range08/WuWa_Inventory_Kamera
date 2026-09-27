@@ -1,4 +1,7 @@
 import unittest
+from enum import Enum
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from scraping.ocr_engine import (
     INTEGER_PROFILE,
@@ -11,6 +14,7 @@ from scraping.ocr_engine import (
     require_confidence,
     STAT_NAME_PROFILE,
     STAT_VALUE_PROFILE,
+    is_korean_language,
 )
 
 
@@ -28,6 +32,53 @@ def token(x, y, text, confidence):
 
 
 class OCREngineTests(unittest.TestCase):
+    def test_korean_language_codes_include_locale_and_name(self):
+        for language in ("ko", "KO", "ko-KR", "ko_KR", "Korean"):
+            with self.subTest(language=language):
+                self.assertTrue(is_korean_language(language))
+        self.assertFalse(is_korean_language("en"))
+        self.assertFalse(is_korean_language(None))
+
+    def test_korean_backend_uses_korean_ppocr_v5_mobile_recognizer(self):
+        class FakeOCRVersion(Enum):
+            PPOCRV5 = "ppocr-v5"
+
+        class FakeLangRec(Enum):
+            KOREAN = "korean"
+
+        class FakeModelType(Enum):
+            MOBILE = "mobile"
+
+        backend = object()
+        rapidocr = SimpleNamespace(
+            LangRec=FakeLangRec,
+            ModelType=FakeModelType,
+            OCRVersion=FakeOCRVersion,
+            RapidOCR=Mock(return_value=backend),
+        )
+
+        with patch.dict("sys.modules", {"rapidocr": rapidocr}):
+            selected = OCREngine(language="ko-KR")._get_backend()
+
+        self.assertIs(selected, backend)
+        rapidocr.RapidOCR.assert_called_once_with(
+            params={
+                "Rec.ocr_version": FakeOCRVersion.PPOCRV5,
+                "Rec.lang_type": FakeLangRec.KOREAN,
+                "Rec.model_type": FakeModelType.MOBILE,
+            }
+        )
+
+    def test_default_backend_settings_remain_unchanged_for_non_korean(self):
+        backend = object()
+        rapidocr = SimpleNamespace(RapidOCR=Mock(return_value=backend))
+
+        with patch.dict("sys.modules", {"rapidocr": rapidocr}):
+            selected = OCREngine(language="en")._get_backend()
+
+        self.assertIs(selected, backend)
+        rapidocr.RapidOCR.assert_called_once_with()
+
     def test_confidence_guard_accepts_threshold_boundary(self):
         result = OCRResult(
             text="Changli",

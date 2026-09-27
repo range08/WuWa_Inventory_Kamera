@@ -301,3 +301,12 @@ The same workflow then ran the updater in explicit offline mode and reported `re
 - Invalid legacy values or credential-like fields fail closed: the validation report is left unchanged and no aggregate account export remains.
 - Added dependency-free tests for pending-review removal, successful aggregate creation, invalid legacy data, and malformed review counts.
 - Weapon and Echo review crops receive a per-entry occurrence suffix, so identical OCR fingerprints cannot overwrite a different copy's crop or make one review decision delete another entry's evidence.
+
+## Korean Global 3.6 validation-capture bootstrap
+
+- Inspected the locally retained `2026-09-27_12-02-15` Windows diagnostic frame. Its Terminal label is `단말기`, matching generated `definedText['PrefabTextItem_1547656443_Text']`.
+- Recalculated only the 1920x1080 Terminal text crop from the frame: `(136, 36, 104, 46)`. This tightens the old `(140, 40, 150, 40)` region around the visible label. It is a screenshot-derived calibration, not a live compatibility claim.
+- Reproduced the OCR failure: the pinned RapidOCR default PP-OCRv6 recognizer has no Hangul charset. The Korean PP-OCRv5 mobile recognizer reads the captured crop as `단말기` at confidence `0.98878`; the existing `0.75` verification threshold is unchanged.
+- Validation capture now initializes its OCR engine from the generated mapping language and records the language/profile used in main-menu verification evidence. The localized string mapping itself did not need correction.
+- Window discovery now matches the exact `Client-Win64-Shipping.exe` executable, excludes hidden, owned, and tool windows, and uses visible-window area with title only as a tie-breaker. Foreground activation uses PyWinCtl's normal `activate()` call and confirms `GetForegroundWindow()`; it no longer posts `WM_ACTIVATE`.
+- Dependency-free tests cover language/model selection, Korean detector injection, calibrated crop coordinates, window selection, and bounded foreground verification. A fresh Windows capture run is still required to verify the combined fix against the running game before marking the initial state compatible.

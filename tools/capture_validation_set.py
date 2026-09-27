@@ -343,7 +343,10 @@ def _run_windows(output_root: Path) -> int:
                 cancel_event.set()
                 raise ScanCancelled("Game focus was lost before the next UI action.")
 
-        detector = ValidationStateDetector(screen_info)
+        detector = ValidationStateDetector(
+            screen_info,
+            language=metadata["language"],
+        )
 
         def roi_signature(frame, roi_path: str):
             from hashlib import sha256

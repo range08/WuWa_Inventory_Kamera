@@ -109,6 +109,7 @@ Current updater is coupled to `Dimbreath/WutheringData` and old paths such as `T
 Start with 1920x1080 fullscreen.
 
 - [ ] Recalibrate all 1920x1080 coordinates against current 3.6 Global UI.
+- [x] Recalculate the Terminal OCR crop from the captured Korean Global 3.6 frame and read it with the Korean RapidOCR model; repeat the live capture to verify the updated detector before claiming main-menu compatibility.
 - [ ] Validate Inventory: category buttons, first cell, grid spacing, name, quantity, description, weapon level/rank, echo card, echo full stats.
 - [ ] Validate Resonator: list, overview, name, level, weapon, echoes, forte/skills, inherent nodes, resonance chain.
 - [ ] Validate Achievements controls/status.
@@ -125,6 +126,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Verify 1680x1050 separately.
 - [x] Detect the Win32 client-area and target-monitor bounds before live automation; reject layouts that cannot safely use monitor-relative coordinates.
 - [ ] Account for Windows DPI scaling.
+- [x] Discover the visible game window by exact executable identity and verify ordinary foreground activation without `WM_ACTIVATE` messages; the updated Windows integration still needs a live rerun.
 - [ ] Support borderless-windowed if reliable.
 - [x] Add a privacy-safe calibration/debug ROI overlay that draws click-through named ROIs over the live game without capturing or saving pixels.
 - [x] Add no-click screenshot diagnostic mode that saves only named scanner ROIs plus layout metadata, never a full-screen capture.

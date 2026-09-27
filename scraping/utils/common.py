@@ -111,6 +111,7 @@ def imageToResult(
     allowedChars: str = None,
     bannedChars: str = None,
     profile: OCRProfile | None = None,
+    ocr_engine: OCREngine | None = None,
 ) -> OCRResult:
     if profile is None:
         profile = OCRProfile(
@@ -120,8 +121,10 @@ def imageToResult(
             banned_chars=bannedChars,
         )
 
+    engine = ocr_engine if ocr_engine is not None else ocrEngine
+
     try:
-        primary = ocrEngine.recognize(image, profile)
+        primary = engine.recognize(image, profile)
     except OCRError:
         logger.debug("Primary OCR attempt failed", exc_info=True)
         primary = OCRResult.empty(profile.name)
@@ -131,7 +134,7 @@ def imageToResult(
 
     try:
         processed = convertToBlackWhite(image)
-        retry = ocrEngine.recognize_candidates(
+        retry = engine.recognize_candidates(
             [processed, cv2.bitwise_not(processed)],
             profile,
             accept_confidence=0.85,
@@ -151,6 +154,7 @@ def imageToString(
     allowedChars: str = None,
     bannedChars: str = None,
     profile: OCRProfile | None = None,
+    ocr_engine: OCREngine | None = None,
 ) -> str:
     return imageToResult(
         image,
@@ -158,6 +162,7 @@ def imageToString(
         allowedChars=allowedChars,
         bannedChars=bannedChars,
         profile=profile,
+        ocr_engine=ocr_engine,
     ).text
 
 
