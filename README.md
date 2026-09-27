@@ -31,18 +31,11 @@ The game-data pipeline has been verified against Wuthering Waves Global 3.6.0 / 
 - Scan Achievements
 - Edit/View inventory data
 
-## To-Do List
-- [x] Character Scanner (no echo)
-- [x] Weapons Scanner
-- [x] Echoes Scanner
-- [x] Achievements Scanner
-- [ ] Auto Updater
-- [x] Support for additional in-game languages
-- [ ] Support for more software languages
-- [x] Improve text recognition accuracy
-- [ ] Improve logs
-- [x] Optimize releases size
-- [ ] Rewrite the code (after all tasks are complete)
+## Validation remaining
+
+The remaining compatibility work needs a real Windows 11 system running Wuthering Waves Global 3.6. Start with 1920x1080 fullscreen and verify each inventory, Resonator, and Achievements screen before making any live-compatibility claim. Korean and English OCR, UI restoration on failure/cancel, scrolling, and animation timing also need live checks.
+
+Other resolutions, Windows DPI scaling, and borderless-windowed mode remain separate validation items. See [`todo.md`](todo.md) for the per-screen release gate and current completion state.
 
 ## Development / local run
 
