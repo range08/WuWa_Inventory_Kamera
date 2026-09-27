@@ -109,7 +109,12 @@ def itemsScraper(START_DATE: str, controller: WindowsInputController, x: int, y:
     seenViewports = set()
 
     check_cancelled(cancel_event)
-    controller.pressKey(cfg.get(cfg.inventoryKeybind), 2, False)
+    controller.pressKey(
+        cfg.get(cfg.inventoryKeybind),
+        2,
+        False,
+        cancel_event=cancel_event,
+    )
     controller.leftClick(x, y)
 
     for _ in range(MAX_VIEWPORTS):
@@ -158,4 +163,3 @@ def itemsScraper(START_DATE: str, controller: WindowsInputController, x: int, y:
     raise RuntimeError(
         f"Item scanner exceeded {MAX_VIEWPORTS} viewports without detecting the end of the inventory."
     )
-

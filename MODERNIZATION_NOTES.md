@@ -282,8 +282,9 @@ The same workflow then ran the updater in explicit offline mode and reported `re
 - Added a dependency-free `wait_or_cancel` helper that waits on the shared process event and raises `ScanCancelled` as soon as a stop request arrives.
 - Scanner mouse, scroll, and single-key settle delays now use that helper. The Resonator section pause and bounded weapon, Echo, and Shell count-retry delays also respond to cancellation.
 - Multi-key press/release sequences keep their short internal spacing and release all keys before the post-action wait observes cancellation.
+- The existing class-level `pressKey` and `hotKey` call forms remain available; scanner paths pass the cancellation event explicitly.
 - The child sends Escape with no settle delay during cleanup, so an already-requested cancellation does not prevent the cleanup key from being sent.
-- Unit tests cover unset/set events, zero and invalid delays, injected sleeping, and cancellation during a retry wait. Live game UI restoration still requires Windows/Wuthering Waves validation.
+- Unit tests cover unset/set events, zero and invalid delays, injected sleeping, cancellation during retry waits, and release of mocked key events before cancellation propagates. Live game UI restoration still requires Windows/Wuthering Waves validation.
 
 ## Manual-review export finalization
 

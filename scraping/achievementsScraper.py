@@ -34,7 +34,7 @@ def achievementScraper(controller: WindowsInputController, screenInfo: ScreenInf
     _cache = dict()
 
     check_cancelled(cancel_event)
-    controller.pressKey('esc', 1)
+    controller.pressKey('esc', 1, cancel_event=cancel_event)
     controller.leftClick(screenInfo.achievements.achievementsButton.x, screenInfo.achievements.achievementsButton.y, 1.2)
     controller.leftClick(screenInfo.achievements.achievementsTab.x, screenInfo.achievements.achievementsTab.y, 1)
 
@@ -42,7 +42,12 @@ def achievementScraper(controller: WindowsInputController, screenInfo: ScreenInf
         check_cancelled(cancel_event)
         copyToClipboard(achievementName)
         controller.leftClick(screenInfo.achievements.searchBar.x, screenInfo.achievements.searchBar.y, .3)
-        controller.hotKey('ctrl', 'v', waitTime=.3)
+        controller.hotKey(
+            'ctrl',
+            'v',
+            waitTime=.3,
+            cancel_event=cancel_event,
+        )
         controller.leftClick(screenInfo.achievements.searchButton.x, screenInfo.achievements.searchButton.y, .6)
 
         image = screenshot(width=screenInfo.width, height=screenInfo.height, monitor=screenInfo.monitor)
@@ -52,6 +57,6 @@ def achievementScraper(controller: WindowsInputController, screenInfo: ScreenInf
         
         controller.leftClick(screenInfo.achievements.searchButton.x, screenInfo.achievements.searchButton.y)
     
-    controller.pressKey('esc', .5)
+    controller.pressKey('esc', .5, cancel_event=cancel_event)
     del _cache
     return achievements

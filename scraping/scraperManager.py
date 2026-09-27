@@ -228,7 +228,7 @@ def scrapers(
 
         for scraper in scraperEnabled:
             check_cancelled(cancelFLAG)
-            controller.pressKey('esc', .5)
+            controller.pressKey('esc', .5, cancel_event=cancelFLAG)
 
             try:
                 match(scraper):
@@ -384,7 +384,11 @@ def scrapers(
     finally:
         if controller is not None:
             try:
-                controller.pressKey('esc', waitTime=0)
+                controller.pressKey(
+                    'esc',
+                    waitTime=0,
+                    cancel_event=cancelFLAG,
+                )
             except Exception:
                 logger.warning(
                     "Failed to restore game UI after scanner exit.",

@@ -151,7 +151,15 @@ class WindowsInputController:
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, x, y, 0, 0)
         self._wait(waitTime)
 
-    def pressKey(self, keyName: str, waitTime: float = 0.1, useShift: bool = True) -> None:
+    @classmethod
+    def pressKey(
+        cls,
+        keyName: str,
+        waitTime: float = 0.1,
+        useShift: bool = True,
+        *,
+        cancel_event=None,
+    ) -> None:
         """
         Simulate pressing a specific key with improved text input support.
         
@@ -162,17 +170,17 @@ class WindowsInputController:
         """
         original_keyName = keyName
         keyName = keyName.lower()
-        keyCode = self.KEY_MAPPING.get(keyName)
+        keyCode = cls.KEY_MAPPING.get(keyName)
         
         if keyCode is not None:
-            isExtended = keyCode & self._OFFSET_EXTENDEDKEY
-            isShift = (keyCode & self._OFFSET_SHIFTKEY or original_keyName.isupper()) and useShift
+            isExtended = keyCode & cls._OFFSET_EXTENDEDKEY
+            isShift = (keyCode & cls._OFFSET_SHIFTKEY or original_keyName.isupper()) and useShift
             scanCode = keyCode & 0xFF
             
-            vk = win32api.MapVirtualKey(scanCode, self.MAPVK_VSC_TO_VK)
+            vk = win32api.MapVirtualKey(scanCode, cls.MAPVK_VSC_TO_VK)
             
             if isShift:
-                win32api.keybd_event(win32con.VK_SHIFT, self._SHIFT_SCANCODE, 0, 0)
+                win32api.keybd_event(win32con.VK_SHIFT, cls._SHIFT_SCANCODE, 0, 0)
             
             flags = win32con.KEYEVENTF_SCANCODE
             if isExtended:
@@ -182,11 +190,18 @@ class WindowsInputController:
             win32api.keybd_event(vk, scanCode, flags | win32con.KEYEVENTF_KEYUP, 0)
             
             if isShift:
-                win32api.keybd_event(win32con.VK_SHIFT, self._SHIFT_SCANCODE, win32con.KEYEVENTF_KEYUP, 0)
+                win32api.keybd_event(win32con.VK_SHIFT, cls._SHIFT_SCANCODE, win32con.KEYEVENTF_KEYUP, 0)
             
-            self._wait(waitTime)
+            wait_or_cancel(cancel_event, waitTime)
 
-    def hotKey(self, *args: str, delay: float = 0.05, waitTime: float = 0.1) -> None:
+    @classmethod
+    def hotKey(
+        cls,
+        *args: str,
+        delay: float = 0.05,
+        waitTime: float = 0.1,
+        cancel_event=None,
+    ) -> None:
         """
         Perform a hotkey combination.
         
@@ -196,19 +211,19 @@ class WindowsInputController:
             waitTime (float, optional): Time to wait after completing hotkey. Defaults to 0.1.
             
         Example:
-            controller.hotKey('ctrl', 'v')  # Performs Ctrl+V
+            WindowsInputController.hotKey('ctrl', 'v')  # Performs Ctrl+V
         """
         # Press all keys in sequence
         for key in args:
-            if key.lower() in self.MODIFIER_KEYS:
-                scancode = self.MODIFIER_KEYS[key.lower()]
+            if key.lower() in cls.MODIFIER_KEYS:
+                scancode = cls.MODIFIER_KEYS[key.lower()]
             else:
-                scancode = self.KEY_MAPPING.get(key.lower())
+                scancode = cls.KEY_MAPPING.get(key.lower())
             
             if scancode is not None:
-                vk = win32api.MapVirtualKey(scancode & 0xFF, self.MAPVK_VSC_TO_VK)
+                vk = win32api.MapVirtualKey(scancode & 0xFF, cls.MAPVK_VSC_TO_VK)
                 flags = win32con.KEYEVENTF_SCANCODE
-                if scancode & self._OFFSET_EXTENDEDKEY:
+                if scancode & cls._OFFSET_EXTENDEDKEY:
                     flags |= win32con.KEYEVENTF_EXTENDEDKEY
                 
                 win32api.keybd_event(vk, scancode & 0xFF, flags, 0)
@@ -216,18 +231,18 @@ class WindowsInputController:
         
         # Release all keys in reverse sequence
         for key in reversed(args):
-            if key.lower() in self.MODIFIER_KEYS:
-                scancode = self.MODIFIER_KEYS[key.lower()]
+            if key.lower() in cls.MODIFIER_KEYS:
+                scancode = cls.MODIFIER_KEYS[key.lower()]
             else:
-                scancode = self.KEY_MAPPING.get(key.lower())
+                scancode = cls.KEY_MAPPING.get(key.lower())
             
             if scancode is not None:
-                vk = win32api.MapVirtualKey(scancode & 0xFF, self.MAPVK_VSC_TO_VK)
+                vk = win32api.MapVirtualKey(scancode & 0xFF, cls.MAPVK_VSC_TO_VK)
                 flags = win32con.KEYEVENTF_SCANCODE | win32con.KEYEVENTF_KEYUP
-                if scancode & self._OFFSET_EXTENDEDKEY:
+                if scancode & cls._OFFSET_EXTENDEDKEY:
                     flags |= win32con.KEYEVENTF_EXTENDEDKEY
                 
                 win32api.keybd_event(vk, scancode & 0xFF, flags, 0)
                 time.sleep(delay)
         
-        self._wait(waitTime)
+        wait_or_cancel(cancel_event, waitTime)

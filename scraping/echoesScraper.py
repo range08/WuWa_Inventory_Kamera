@@ -361,7 +361,12 @@ def echoScraper(
     review_path = basePATH / "logs" / "fail" / start_date
 
     check_cancelled(cancel_event)
-    controller.pressKey(cfg.get(cfg.inventoryKeybind), 2, False)
+    controller.pressKey(
+        cfg.get(cfg.inventoryKeybind),
+        2,
+        False,
+        cancel_event=cancel_event,
+    )
     controller.leftClick(x, y)
 
     echoCount, pages = getEchoPages(screenInfo, cancel_event=cancel_event)

@@ -179,7 +179,14 @@ def scrapeWeapon(image: np.ndarray, screenInfo: ScreenInfo, characters: dict, re
     characters[resonatorID]['weapon']['ascension'] = weaponAscension
     characters[resonatorID]['weapon']['rank'] = weaponRank
 
-def scrapeSkills(controller: WindowsInputController, screenInfo: ScreenInfo, characters: dict, resonatorID: str, _cache: dict):
+def scrapeSkills(
+    controller: WindowsInputController,
+    screenInfo: ScreenInfo,
+    characters: dict,
+    resonatorID: str,
+    _cache: dict,
+    cancel_event=None,
+):
     controller.leftClick(screenInfo.characters.skillClick.x, screenInfo.characters.skillClick.y, .5)
 
     try:
@@ -243,9 +250,16 @@ def scrapeSkills(controller: WindowsInputController, screenInfo: ScreenInfo, cha
                 else:
                     break
     finally:
-        controller.pressKey('esc')
+        controller.pressKey('esc', waitTime=0, cancel_event=cancel_event)
 
-def scrapeChain(controller: WindowsInputController, screenInfo: ScreenInfo, characters: dict, resonatorID: str, _cache: dict):
+def scrapeChain(
+    controller: WindowsInputController,
+    screenInfo: ScreenInfo,
+    characters: dict,
+    resonatorID: str,
+    _cache: dict,
+    cancel_event=None,
+):
     controller.leftClick(screenInfo.characters.chainClick.x, screenInfo.characters.chainClick.y, .7)
 
     try:
@@ -280,7 +294,7 @@ def scrapeChain(controller: WindowsInputController, screenInfo: ScreenInfo, char
 
             characters[resonatorID]['chain'] += 1
     finally:
-        controller.pressKey('esc')
+        controller.pressKey('esc', waitTime=0, cancel_event=cancel_event)
 
 def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo, cancel_event=None):
     characters = defaultdict(
@@ -322,7 +336,12 @@ def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo,
     nameCache = dict()
 
     check_cancelled(cancel_event)
-    controller.pressKey(cfg.get(cfg.resonatorKeybind), 2, False)
+    controller.pressKey(
+        cfg.get(cfg.resonatorKeybind),
+        2,
+        False,
+        cancel_event=cancel_event,
+    )
 
     xLeftSide, yLeftSide = screenInfo.characters.leftSide.x, screenInfo.characters.leftSide.y
     xRightSide, yRightSide = screenInfo.characters.rightSide.x, screenInfo.characters.rightSide.y
@@ -373,9 +392,23 @@ def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo,
                     case 2:
                         pass  # Skip echoes for now
                     case 3:
-                        scrapeSkills(controller, screenInfo, characters, resonatorID, _cache)
+                        scrapeSkills(
+                            controller,
+                            screenInfo,
+                            characters,
+                            resonatorID,
+                            _cache,
+                            cancel_event=cancel_event,
+                        )
                     case 4:
-                        scrapeChain(controller, screenInfo, characters, resonatorID, _cache)
+                        scrapeChain(
+                            controller,
+                            screenInfo,
+                            characters,
+                            resonatorID,
+                            _cache,
+                            cancel_event=cancel_event,
+                        )
 
                 wait_or_cancel(cancel_event, .5)
 
