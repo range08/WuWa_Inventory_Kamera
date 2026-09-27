@@ -4,12 +4,14 @@ import win32con
 from typing import Union
 from mss import mss
 
+from scraping.cancellation import wait_or_cancel
+
 class WindowsInputController:
     """
     A class to handle Windows input simulation including keyboard and mouse controls.
     """
     
-    def __init__(self, monitor: int = 1):
+    def __init__(self, monitor: int = 1, cancel_event=None):
         """
         Initialize WindowsInputController with monitor index.
         
@@ -18,6 +20,10 @@ class WindowsInputController:
         """
         self.sct = mss()
         self.monitor = self.sct.monitors[monitor]
+        self.cancel_event = cancel_event
+
+    def _wait(self, seconds: float) -> None:
+        wait_or_cancel(self.cancel_event, seconds)
     
     # Class-level constants
     KEYEVENTF_KEYDOWN = 0x0000
@@ -113,7 +119,7 @@ class WindowsInputController:
         """
         scaledAmount = int(amount * 120)
         win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, scaledAmount, 0)
-        time.sleep(waitTime)
+        self._wait(waitTime)
     
     def moveMouse(self, x: Union[int, float], y: Union[int, float], waitTime: float = 0.1) -> None:
         """
@@ -127,7 +133,7 @@ class WindowsInputController:
         x = int(x) + self.monitor["left"]
         y = int(y) + self.monitor["top"]
         win32api.SetCursorPos((x, y))
-        time.sleep(waitTime)
+        self._wait(waitTime)
     
     def leftClick(self, x: Union[int, float], y: Union[int, float], waitTime: float = 0.1) -> None:
         """
@@ -143,10 +149,17 @@ class WindowsInputController:
         
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, x, y, 0, 0)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, x, y, 0, 0)
-        time.sleep(waitTime)
-    
+        self._wait(waitTime)
+
     @classmethod
-    def pressKey(cls, keyName: str, waitTime: float = 0.1, useShift: bool = True) -> None:
+    def pressKey(
+        cls,
+        keyName: str,
+        waitTime: float = 0.1,
+        useShift: bool = True,
+        *,
+        cancel_event=None,
+    ) -> None:
         """
         Simulate pressing a specific key with improved text input support.
         
@@ -179,10 +192,16 @@ class WindowsInputController:
             if isShift:
                 win32api.keybd_event(win32con.VK_SHIFT, cls._SHIFT_SCANCODE, win32con.KEYEVENTF_KEYUP, 0)
             
-            time.sleep(waitTime)
-    
+            wait_or_cancel(cancel_event, waitTime)
+
     @classmethod
-    def hotKey(cls, *args: str, delay: float = 0.05, waitTime: float = 0.1) -> None:
+    def hotKey(
+        cls,
+        *args: str,
+        delay: float = 0.05,
+        waitTime: float = 0.1,
+        cancel_event=None,
+    ) -> None:
         """
         Perform a hotkey combination.
         
@@ -226,4 +245,4 @@ class WindowsInputController:
                 win32api.keybd_event(vk, scancode & 0xFF, flags, 0)
                 time.sleep(delay)
         
-        time.sleep(waitTime)
+        wait_or_cancel(cancel_event, waitTime)

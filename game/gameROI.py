@@ -14,7 +14,7 @@ class Coordinates:
 COORDINATES = {
     (16, 9): {
         (1920, 1080): {
-            "terminal": Coordinates(140, 40, 150, 40),
+            "terminal": Coordinates(136, 36, 104, 46),
             "shell": Coordinates(1255, 38, 165, 50),
             "offsets": {
                 "page": Coordinates(16, 24)

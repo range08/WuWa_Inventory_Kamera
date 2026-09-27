@@ -4,14 +4,40 @@ from difflib import get_close_matches as getMatches
 
 from game.foreground import WindowManager
 from scraping.utils.common import definedText
-from scraping.utils import (
-    screenshot, imageToString
-)
+from scraping.utils import screenshot
+from scraping.ocr_engine import NAME_PROFILE, OCRProfile
+from scraping.utils import imageToResult
 
 logger = logging.getLogger('MainMenuController')
 
 class MainMenuController:
     """Handles interactions with the screen and performs actions based on visual content."""
+
+    @staticmethod
+    def inspect_image(
+        image,
+        *,
+        ocr_engine=None,
+        profile: OCRProfile = NAME_PROFILE,
+    ) -> dict:
+        """Return structured OCR evidence for the calibrated Terminal ROI."""
+        result = imageToResult(image, profile=profile, ocr_engine=ocr_engine)
+        expected = definedText.get('PrefabTextItem_1547656443_Text', '')
+        candidates = [value.lower() for value in (expected, 'terminal') if value]
+        recognized = bool(
+            result.text
+            and result.confidence >= 0.75
+            and candidates
+            and getMatches(result.text.lower(), candidates, n=1, cutoff=0.72)
+        )
+        return {
+            'verified': recognized,
+            'detector': 'terminal-label-ocr',
+            'confidence': result.confidence,
+            'roi': 'terminal',
+            'ocr_profile': profile.name,
+            'reason': None if recognized else 'Terminal label OCR did not match.',
+        }
 
     def isMenu(self) -> bool:
         """
@@ -30,10 +56,13 @@ class MainMenuController:
                 screenInfo.monitor
             )
 
-            result = imageToString(image, '').lower()
-            logger.debug(f"Detected text from screenshot: '{result}'")
-            
-            return 'terminal' if getMatches(result, [definedText['PrefabTextItem_1547656443_Text']]) else False # MULTILANG
+            evidence = self.inspect_image(image)
+            logger.debug(
+                "Terminal state verified=%s confidence=%.3f",
+                evidence['verified'],
+                evidence['confidence'],
+            )
+            return 'terminal' if evidence['verified'] else False
         except Exception as e:
             logger.error(f"Failed to capture or process screenshot: {e}", exc_info=True)
             return False

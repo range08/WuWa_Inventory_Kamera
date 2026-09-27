@@ -6,24 +6,25 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget, QSpacerItem, QSizePolicy
 
 from qfluentwidgets import (
-	ProgressRing, BodyLabel
+	ProgressRing, BodyLabel, PushButton
 )
 
 from properties.config import basePATH
 from ui.mainUI import WuWaInventoryKamera
 from updater.databaseUpdater import DataUpdater
-from updater.assetsUpdater import AssetsUpdater
 
 logger = logging.getLogger('LoadingScreen')
 
 class DataUpdaterThread(QThread):
 	updateProgress = Signal(int, str)
+	updateFailed = Signal(str)
 	updateFinished = Signal()
 
 	def __init__(self):
 		super().__init__()
 		self.dataUpdater = DataUpdater()
 		self.dataUpdater.updateProgress.connect(self.updateProgress.emit)
+		self.dataUpdater.updateFailed.connect(self.updateFailed.emit)
 		self.dataUpdater.updateFinished.connect(self.updateFinished.emit)
 		logger.debug("DataUpdaterThread initialized")
 
@@ -31,33 +32,15 @@ class DataUpdaterThread(QThread):
 		logger.info("Starting data update process")
 		try:
 			self.dataUpdater.run()
-			logger.info("Data update process completed successfully")
+			logger.info("Data update process finished")
 		except Exception as e:
 			logger.error(f"Error during data update: {e}", exc_info=True)
-
-class AssetsUpdaterThread(QThread):
-	updateProgress = Signal(int, str)
-	updateFinished = Signal()
-
-	def __init__(self):
-		super().__init__()
-		self.assetsUpdater = AssetsUpdater()
-		self.assetsUpdater.updateProgress.connect(self.updateProgress.emit)
-		self.assetsUpdater.updateFinished.connect(self.updateFinished.emit)
-		logger.debug("AssetsUpdaterThread initialized")
-
-	def run(self):
-		logger.info("Starting assets update process")
-		try:
-			self.assetsUpdater.run()
-			logger.info("Assets update process completed successfully")
-		except Exception as e:
-			logger.error(f"Error during assets update: {e}", exc_info=True)
 
 class LoadingScreen(QWidget):
 	def __init__(self):
 		super().__init__()
 		logger.debug("Initializing LoadingScreen")
+		self.dataUpdateError = None
 		self.initWindow()
 		self.setupUI()
 		self.startDataUpdate()
@@ -93,29 +76,52 @@ class LoadingScreen(QWidget):
 		self.file_label.setAlignment(Qt.AlignCenter)
 		self.vBoxLayout.addWidget(self.file_label, 0, Qt.AlignHCenter)
 
+		self.retry_button = PushButton("Retry game-data update", self)
+		self.retry_button.setVisible(False)
+		self.retry_button.clicked.connect(self.startDataUpdate)
+		self.vBoxLayout.addWidget(self.retry_button, 0, Qt.AlignHCenter)
+
 		self.vBoxLayout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
 		logger.info("UI setup completed")
 
 	def startDataUpdate(self):
 		logger.info("Initializing and starting data update thread")
+		self.dataUpdateError = None
+		self.retry_button.setVisible(False)
+		self.progress_ring.setValue(0)
+		self.label.setText("Loading, please wait...")
+		self.file_label.setText("")
+
 		self.dataUpdater_thread = DataUpdaterThread()
 		self.dataUpdater_thread.updateProgress.connect(self.updateProgress)
-		self.dataUpdater_thread.updateFinished.connect(self.startAssetsUpdate)
+		self.dataUpdater_thread.updateFailed.connect(self.onDataUpdateFailed)
+		self.dataUpdater_thread.updateFinished.connect(self.finishDataUpdate)
 		self.dataUpdater_thread.start()
 
-	def startAssetsUpdate(self):
-		logger.info("Initializing and starting data assets thread")
-		self.assetsUpdater_thread = AssetsUpdaterThread()
-		self.assetsUpdater_thread.updateProgress.connect(self.updateProgress)
-		self.assetsUpdater_thread.updateFinished.connect(self.on_updateFinished)
-		self.assetsUpdater_thread.start()
+	def onDataUpdateFailed(self, message: str):
+		self.dataUpdateError = message or "Unknown game-data update error."
+		self.label.setText("Game-data update failed.")
+		self.file_label.setText(self.dataUpdateError)
+		self.retry_button.setVisible(True)
+
+	def finishDataUpdate(self):
+		if self.dataUpdateError:
+			logger.error(
+				"Not starting application because game-data update failed: %s",
+				self.dataUpdateError,
+			)
+			return
+
+		# Item icons are cosmetic. Do not block startup on an external asset
+		# repository; the inventory UI provides a missing-icon fallback.
+		self.on_updateFinished()
 
 	def updateProgress(self, value, file_name):
 		self.progress_ring.setValue(value)
 		self.label.setText(f"Downloading {file_name}...")
 
 	def on_updateFinished(self):
-		logger.info("Data update finished, transitioning to main window")
+		logger.info("Required data update finished, transitioning to main window")
 		self.close()
 		try:
 			self.main_window = WuWaInventoryKamera()

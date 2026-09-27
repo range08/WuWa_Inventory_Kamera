@@ -1,0 +1,88 @@
+name: Game Data Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      data_ref:
+        description: WutheringWaves_Data branch, tag, or commit
+        required: true
+        default: "3.6"
+        type: string
+      language:
+        description: Game text language
+        required: true
+        default: ko
+        type: choice
+        options:
+          - ko
+          - en
+
+permissions:
+  contents: read
+
+jobs:
+  real-data-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      WUWA_DATA_REF: ${{ inputs.data_ref }}
+      WUWA_LANGUAGE: ${{ inputs.language }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate mappings from current Global data
+        shell: pwsh
+        run: python -m tools.update_game_data --language "$env:WUWA_LANGUAGE" --ref "$env:WUWA_DATA_REF"
+
+      - name: Validate generated mappings and metadata
+        shell: pwsh
+        run: |
+          @'
+          import json
+          import os
+          from pathlib import Path
+
+          minimums = {
+              "characters.json": 20,
+              "weapons.json": 50,
+              "items.json": 100,
+              "echoes.json": 50,
+              "achievements.json": 100,
+          }
+
+          for filename, minimum in minimums.items():
+              path = Path("data") / filename
+              data = json.loads(path.read_text(encoding="utf-8"))
+              count = len(data)
+              print(f"{filename}: {count}")
+              if count < minimum:
+                  raise SystemExit(
+                      f"{filename} generated only {count} entries; expected at least {minimum}"
+                  )
+
+          manifest = json.loads(
+              (Path("data") / "mapping_manifest.json").read_text(encoding="utf-8")
+          )
+          source = manifest["source"]
+          assert source["repository"] == "Arikatsu/WutheringWaves_Data"
+          assert source["ref"] == os.environ["WUWA_DATA_REF"]
+          assert source["language"] == os.environ["WUWA_LANGUAGE"]
+          print(json.dumps(source, ensure_ascii=False, indent=2))
+          '@ | python -
+
+      - name: Verify offline mapping reuse
+        shell: pwsh
+        run: |
+          $before = (Get-FileHash data/mapping_manifest.json -Algorithm SHA256).Hash
+          python -m tools.update_game_data --language "$env:WUWA_LANGUAGE" --ref "$env:WUWA_DATA_REF" --offline
+          $after = (Get-FileHash data/mapping_manifest.json -Algorithm SHA256).Hash
+          if ($before -ne $after) {
+            throw "Offline reuse unexpectedly regenerated mapping_manifest.json"
+          }

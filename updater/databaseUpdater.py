@@ -1,271 +1,82 @@
-import re
-import json
-import urllib.request
 import logging
-from babel import Locale
+import os
 from pathlib import Path
-from dataclasses import dataclass
+
 from PySide6.QtCore import QObject, Signal
 
-from properties.config import cfg
-from scraping.utils import (
-	itemsID, charactersID, weaponsID,
-	echoesID, achievementsID, echoStats,
-	definedText, sonataName
+from properties.config import LANGUAGES, basePATH, cfg
+from scraping.data_store import GameDataStoreError, reload_generated_mappings
+from updater.mapping_generator import (
+    MappingGenerationError,
+    generate_from_cache,
+    generated_mappings_current,
 )
+from updater.providers import ArikatsuDataProvider, DEFAULT_GAME_DATA_REF
+from updater.source_cache import SourceCache, SourceCacheError
 
-logger = logging.getLogger('DatabaseManager')
+logger = logging.getLogger("DatabaseManager")
 
-@dataclass
-class FileConfig:
-	folder: list[str]
-	file: str
 
 class DataUpdater(QObject):
-	updateProgress = Signal(int, str)
-	updateFinished = Signal()
+    """Qt adapter around the versioned Global-client data updater."""
 
-	API = 'https://api.github.com/repos/{owner}/{repo}/contents/{path}'
-	
-	def __init__(self):
-		super().__init__()
-		self.author = 'Dimbreath'
-		self.repo = 'WutheringData'
-		self.lang = self._getLanguage()
-		self.files = [
-			FileConfig(['TextMap', self.lang], 'MultiText.json'),
-			FileConfig(['ConfigDB'], 'ItemInfo.json'),
-			FileConfig(['ConfigDB'], 'WeaponConf.json'),
-		]
-		self.updated = False
+    updateProgress = Signal(int, str)
+    updateFailed = Signal(str)
+    updateFinished = Signal()
 
-	def _getLanguage(self) -> str:
-		self.makeFolder()
+    def __init__(self):
+        super().__init__()
+        self.lang = LANGUAGES.get(cfg.get(cfg.gameLanguage), "en")
+        self.source_ref = (
+            os.environ.get("WUWA_DATA_REF", DEFAULT_GAME_DATA_REF).strip()
+            or DEFAULT_GAME_DATA_REF
+        )
+        self.data_dir = Path(basePATH) / "data"
 
-		url = self.API.format(
-			owner=self.author,
-			repo=self.repo,
-			path='TextMap'
-		)
-		uLang = cfg.get(cfg.gameLanguage)
-		languages = self.loadJson('languages.json')
-		
-		if uLang not in languages:
-			languages = {self._getLanguageName(item['name']): item['name'] for item in self.fetchFileData(url) if item['type'] == 'dir'}
-			self.saveJson(languages, 'languages.json')
+    def run(self):
+        try:
+            self.updateProgress.emit(5, "Resolving game-data revision")
 
-		return languages.get(uLang, 'en')
+            provider = ArikatsuDataProvider(self.source_ref)
+            cache = SourceCache(self.data_dir / "source")
+            manifest_path = cache.sync(provider, self.lang)
 
-	def makeFolder(self):
-		Path('data').mkdir(parents=True, exist_ok=True)
-		logger.debug("Ensured 'data' directory exists.")
+            self.updateProgress.emit(85, "Preparing scanner mappings")
+            counts = generated_mappings_current(
+                manifest_path.parent,
+                self.data_dir,
+            )
+            if counts is None:
+                counts = generate_from_cache(manifest_path.parent, self.data_dir)
+            else:
+                logger.info("Reusing generated scanner mappings for current source revision")
 
-	def _getLanguageName(self, code: str) -> str:
-		parts = code.split('-')
-		locale = Locale(parts[0], script=parts[1] if len(parts) != 1 else None)
-		try: return locale.get_display_name().capitalize()
-		except: return code
+            self._reload_generated_mappings()
 
-	def fetchFileData(self, url: str) -> dict:
-		try:
-			with urllib.request.urlopen(urllib.request.Request(url)) as response:
-				return json.loads(response.read().decode())
-		except:
-			return {}
+            manifest = cache.validate(manifest_path)
+            logger.info(
+                "Game data updated: version=%s resource=%s revision=%s language=%s generated=%s",
+                manifest["source"]["game_version"],
+                manifest["source"]["resource_version"],
+                manifest["revision"],
+                manifest["language"],
+                counts,
+            )
+            self.updateProgress.emit(100, "Game data ready")
+        except (SourceCacheError, MappingGenerationError, GameDataStoreError, ValueError, OSError) as exc:
+            logger.error("Game-data update failed: %s", exc, exc_info=True)
+            self.updateFailed.emit(str(exc))
+        except Exception as exc:
+            logger.critical(
+                "Unexpected game-data update failure: %s",
+                exc,
+                exc_info=True,
+            )
+            self.updateFailed.emit(
+                "Unexpected game-data update failure. See the debug log for details."
+            )
+        finally:
+            self.updateFinished.emit()
 
-	def updateFiles(self):
-		for fileConfig in self.files:
-			url = self.API.format(
-				owner=self.author,
-				repo=self.repo,
-				path='/'.join(fileConfig.folder + [fileConfig.file])
-			)
-
-			logger.info(f'Checking for updates on file: {fileConfig.file}')
-			try:
-				data = self.fetchFileData(url)
-				filePath: Path = Path('data') / fileConfig.file
-
-				currentSize = filePath.stat().st_size if filePath.is_file() else 0
-
-				if data['size'] != currentSize:
-					logger.info(f'Downloading updated version of {fileConfig.file}...')
-					urllib.request.urlretrieve(
-						data['download_url'],
-						filePath,
-						reporthook=lambda block_num, block_size, total_size: self.reportProgress(fileConfig.file, block_num, block_size, total_size)
-					)
-					self.updated = True
-					logger.info(f'File updated: {fileConfig.file}')
-			except Exception as e:
-				logger.error(f'Failed to update {fileConfig.file}. Error: {e}')
-	
-	
-	def reportProgress(self, file_name, block_num, block_size, total_size):
-		downloaded = block_num * block_size
-		percent = (downloaded / total_size)*100
-		self.updateProgress.emit(percent, file_name)
-
-	def loadJson(self, filename: str) -> dict:
-		try:
-			with open(f'./data/{filename}', 'r', encoding='utf-8') as f:
-				return json.load(f)
-		except:
-			return dict()
-
-	def saveJson(self, data: dict, filename: str):
-		with open(f'./data/{filename}', 'w', encoding='utf-8') as f:
-			json.dump(data, f, indent=4)
-
-	def updateItems(self):
-		if not (Path('data') / 'items.json').is_file():
-			logger.info('Updating items.json...')
-			try:
-				infoText = self.loadJson('MultiText.json')
-				itemInfo = self.loadJson('ItemInfo.json')
-				weaponInfo = self.loadJson('WeaponConf.json')
-
-				items = {
-					infoText[item['Name']].lower().replace(' ', ''): {
-						'id': item['Id'],
-						'name': infoText[item['Name']],
-						'image': item['Icon'].split('/Image/')[1].rsplit('.', 1)[0] + '.png'
-					}
-					for item in itemInfo if item['Name'] in infoText
-				}
-				weapons = {
-					infoText[weapon['WeaponName']].lower().replace(' ', ''): {
-						'id': weapon['ModelId'],
-						'name': infoText[weapon['WeaponName']],
-						'rarity': weapon['QualityId'],
-						'image': weapon['Icon'].split('/Image/')[1].rsplit('.', 1)[0] + '.png'
-					}
-					for weapon in weaponInfo if weapon['WeaponName'] in infoText
-				}
-
-				self.saveJson(items, 'items.json')
-				self.saveJson(weapons, 'weapons.json')
-
-				itemsID.update(items)
-				weaponsID.update(weapons)
-				
-			except Exception as e:
-				logger.error(f'Failed to update items.json. Error: {e}', exc_info=True)
-
-	def updateJsonFromPattern(self, fileName: str, pattern: str, transformFunc):
-		logger.info(f'Updating {fileName}...')
-		try:
-			infoText = self.loadJson('MultiText.json')
-			
-			data = {}
-			compiledPattern = re.compile(pattern)
-			for key in infoText:
-				if match := compiledPattern.match(key):
-					transformed = transformFunc(infoText[key], match)
-					if transformed is not None:
-						data[transformed] = int(match.group(1))
-
-			self.saveJson(data, fileName)
-			return data
-		except Exception as e:
-			logger.error(f'Failed to update {fileName}. Error: {e}', exc_info=True)
-
-	def updateCharacters(self):
-		data = self.updateJsonFromPattern(
-			'characters.json',
-			r'^RoleInfo_(\d+)_Name$',
-			lambda text, match: text.lower().replace(' ', '') if int(match.group(1)) < 5000 else None
-		)
-		if data:
-			charactersID.update(data)
-
-	def updateEcho(self):
-		data = self.updateJsonFromPattern(
-			'echoes.json',
-			r'^MonsterInfo_(\d+)_Name$',
-			lambda text, match: text.lower().replace(' ', '') if int(match.group(1)) < 350000000 else None
-		)
-		if data:
-			echoesID.update(data)
-
-	def updateAchievements(self):
-		data = self.updateJsonFromPattern(
-			'achievements.json',
-			r'^Achievement_(\d+)_Name$',
-			lambda text, _: text
-		)
-		if data:
-			achievementsID.update(data)
-
-	def updateEchoStats(self):
-		statsKey = {
-			'PropertyIndex_10003_Name': 'hp',
-			'PropertyIndex_10007_Name': 'atk',
-			'PropertyIndex_10008_Name': 'cr',
-			'PropertyIndex_10009_Name': 'cd',
-			'PropertyIndex_10010_Name': 'def',
-			'PropertyIndex_10011_Name': 'er',
-			'PropertyIndex_10014_Name': 'skillDmg',
-			'PropertyIndex_10017_Name': 'basicAttack',
-			'PropertyIndex_10018_Name': 'heavyAttack',
-			'PropertyIndex_10019_Name': 'liberationDmg',
-			'PropertyIndex_10022_Name': 'glacio',
-			'PropertyIndex_10023_Name': 'fusion',
-			'PropertyIndex_10024_Name': 'electro',
-			'PropertyIndex_10025_Name': 'aero',
-			'PropertyIndex_10026_Name': 'spectro',
-			'PropertyIndex_10027_Name': 'havoc',
-			'PropertyIndex_10035_Name': 'healing'
-		}
-
-		try:
-			infoText = self.loadJson('MultiText.json')
-			
-			stats = {infoText[key].lower().replace(' ', '').replace('.', ''): value
-					 for key, value in statsKey.items()}
-			
-			self.saveJson(stats, 'echoStats.json')
-			echoStats.update(stats)
-			
-		except Exception as e:
-			logger.error(f'Failed to update echoStats. Error: {e}', exc_info=True)
-
-	def updateSonata(self):
-		data = self.updateJsonFromPattern(
-			'sonataName.json',
-			r'^PhantomFetter_(\d+)_Name$',
-			lambda text, _: text.lower().replace(' ', '')
-		)
-		if data:
-			sonataName.extend(list(data))
-
-	def updateDefinedText(self):
-		textKey = [
-			'PrefabTextItem_1547656443_Text',  # Terminal
-			'PrefabTextItem_128820487_Text',   # Claim
-			'PrefabTextItem_3963945691_Text'   # Activated
-		]
-
-		try:
-			infoText = self.loadJson('MultiText.json')
-			
-			stats = {key: infoText[key].lower().replace(' ', '').replace('-', '').strip()
-					 for key in textKey}
-			
-			self.saveJson(stats, 'definedText.json')
-			definedText.update(stats)
-			
-		except Exception as e:
-			logger.error(f'Failed to update definedText. Error: {e}', exc_info=True)
-
-	def run(self):
-		self.updateFiles()
-		if self.updated:
-			self.updateItems()
-			self.updateEchoStats()
-			self.updateSonata()
-			self.updateDefinedText()
-			self.updateAchievements()
-			self.updateCharacters()
-			self.updateEcho()
-		self.updateFinished.emit()
+    def _reload_generated_mappings(self):
+        reload_generated_mappings(self.data_dir)
