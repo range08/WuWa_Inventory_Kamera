@@ -10,7 +10,7 @@ from scraping.retry import retry_call
 logger = logging.getLogger('ShellScraper')
 
 
-def getShell(screenInfo: ScreenInfo):
+def getShell(screenInfo: ScreenInfo, cancel_event=None):
     xShell, yShell, wShell, hShell = (
         screenInfo.shell.x,
         screenInfo.shell.y,
@@ -40,5 +40,10 @@ def getShell(screenInfo: ScreenInfo):
                 f"Unable to parse Shell Credit quantity: {shellText!r}"
             ) from exc
 
-    shell = retry_call(read_shell, attempts=3, delay_seconds=0.2)
+    shell = retry_call(
+        read_shell,
+        attempts=3,
+        delay_seconds=0.2,
+        cancel_event=cancel_event,
+    )
     return {'2': shell}

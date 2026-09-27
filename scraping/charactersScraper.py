@@ -1,4 +1,3 @@
-import time
 import string
 import logging
 import numpy as np
@@ -22,7 +21,7 @@ from scraping.matching import (
     RESONATOR_NAME_CUTOFF,
     best_match,
 )
-from scraping.cancellation import check_cancelled
+from scraping.cancellation import check_cancelled, wait_or_cancel
 from scraping.parsing import (
     ScanParseError,
     ascension_from_level_cap,
@@ -378,7 +377,7 @@ def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo,
                     case 4:
                         scrapeChain(controller, screenInfo, characters, resonatorID, _cache)
 
-                time.sleep(.5)
+                wait_or_cancel(cancel_event, .5)
 
         # Overlapping scroll positions can repeat some characters. Only stop
         # once an entire seven-slot viewport contains no unseen resonator.
@@ -391,4 +390,3 @@ def resonatorScraper(controller: WindowsInputController, screenInfo: ScreenInfo,
     raise RuntimeError(
         f"Character scanner exceeded {MAX_RESONATOR_VIEWPORTS} viewports without detecting the end of the resonator list."
     )
-

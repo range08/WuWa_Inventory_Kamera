@@ -215,7 +215,10 @@ def scrapers(
 ):
     controller = None
     try:
-        controller = WindowsInputController(screenInfo.monitor)
+        controller = WindowsInputController(
+            screenInfo.monitor,
+            cancel_event=cancelFLAG,
+        )
         resonator = dict()
         inventory = dict()
         failed = list()
@@ -283,7 +286,7 @@ def scrapers(
                 if scraper not in ['characters', 'achievements']:
                     if '2' not in inventory or inventory.get('2') == 0:
                         check_cancelled(cancelFLAG)
-                        shell = getShell(screenInfo)
+                        shell = getShell(screenInfo, cancel_event=cancelFLAG)
                         check_cancelled(cancelFLAG)
                         inventory = {**shell, **inventory}
             except ScanCancelled:
@@ -381,7 +384,7 @@ def scrapers(
     finally:
         if controller is not None:
             try:
-                controller.pressKey('esc')
+                controller.pressKey('esc', waitTime=0)
             except Exception:
                 logger.warning(
                     "Failed to restore game UI after scanner exit.",

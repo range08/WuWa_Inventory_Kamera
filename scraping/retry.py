@@ -6,6 +6,8 @@ import time
 from collections.abc import Callable
 from typing import TypeVar
 
+from scraping.cancellation import wait_or_cancel
+
 T = TypeVar("T")
 
 
@@ -16,6 +18,7 @@ def retry_call(
     delay_seconds: float = 0.15,
     retry_on: tuple[type[BaseException], ...] = (ValueError,),
     sleeper: Callable[[float], None] = time.sleep,
+    cancel_event=None,
 ) -> T:
     """Run an operation with a bounded retry count and re-raise the last error."""
     if attempts < 1:
@@ -32,7 +35,10 @@ def retry_call(
         except retry_on as exc:
             last_error = exc
             if attempt + 1 < attempts:
-                sleeper(delay_seconds)
+                if cancel_event is None:
+                    sleeper(delay_seconds)
+                else:
+                    wait_or_cancel(cancel_event, delay_seconds)
 
     assert last_error is not None
     raise last_error

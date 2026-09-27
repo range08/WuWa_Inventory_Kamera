@@ -76,7 +76,7 @@ def getRarity(image: np.ndarray):
             return rarity
     return None
 
-def getEchoPages(screenInfo: ScreenInfo) -> int:
+def getEchoPages(screenInfo: ScreenInfo, cancel_event=None) -> tuple[int, int]:
     def read_count() -> int:
         image = screenshot(
             width=screenInfo.width,
@@ -101,7 +101,12 @@ def getEchoPages(screenInfo: ScreenInfo) -> int:
                 f"Unable to parse echo inventory count: {echoCountText!r}"
             ) from exc
 
-    echoCount = retry_call(read_count, attempts=3, delay_seconds=0.2)
+    echoCount = retry_call(
+        read_count,
+        attempts=3,
+        delay_seconds=0.2,
+        cancel_event=cancel_event,
+    )
     return echoCount, int(np.ceil(echoCount / 24))
 
 def processEcho(name: str, level: int, tuneLv: int, sonata: str, rarity: int, stats: dict) -> dict[str, dict[int, int, dict]]:
@@ -354,7 +359,7 @@ def echoScraper(
     controller.pressKey(cfg.get(cfg.inventoryKeybind), 2, False)
     controller.leftClick(x, y)
 
-    echoCount, pages = getEchoPages(screenInfo)
+    echoCount, pages = getEchoPages(screenInfo, cancel_event=cancel_event)
     continueScraping = False
 
     for page in range(pages):

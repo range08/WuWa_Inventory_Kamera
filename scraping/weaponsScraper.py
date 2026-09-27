@@ -97,7 +97,7 @@ def _save_weapon_review(
 
 WEAPON_ASCENSION_LEVELS = [20, 40, 50, 60, 70, 80, 90]
 
-def getWeaponPages(screenInfo: ScreenInfo) -> int:
+def getWeaponPages(screenInfo: ScreenInfo, cancel_event=None) -> tuple[int, int]:
     def read_count() -> int:
         image = screenshot(
             width=screenInfo.width,
@@ -122,7 +122,12 @@ def getWeaponPages(screenInfo: ScreenInfo) -> int:
                 f"Unable to parse weapon inventory count: {weaponCountText!r}"
             ) from exc
 
-    weaponCount = retry_call(read_count, attempts=3, delay_seconds=0.2)
+    weaponCount = retry_call(
+        read_count,
+        attempts=3,
+        delay_seconds=0.2,
+        cancel_event=cancel_event,
+    )
     return weaponCount, int(np.ceil(weaponCount / 24))
 
 def processItem(name: str, valueText: str) -> tuple[str, int]:
@@ -302,7 +307,7 @@ def weaponScraper(
     controller.pressKey(cfg.get(cfg.inventoryKeybind), 2, False)
     controller.leftClick(x, y)
 
-    weaponCount, pages = getWeaponPages(screenInfo)
+    weaponCount, pages = getWeaponPages(screenInfo, cancel_event=cancel_event)
     continueScraping = False
 
     for page in range(pages):

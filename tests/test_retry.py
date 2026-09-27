@@ -1,5 +1,6 @@
 import unittest
 
+from scraping.cancellation import ScanCancelled
 from scraping.retry import retry_call
 
 
@@ -49,6 +50,28 @@ class RetryTests(unittest.TestCase):
             retry_call(
                 lambda: (_ for _ in ()).throw(RuntimeError("fatal")),
                 retry_on=(ValueError,),
+            )
+
+    def test_cancellation_interrupts_retry_delay(self):
+        class CancellingEvent:
+            def __init__(self):
+                self.cancelled = False
+
+            def is_set(self):
+                return self.cancelled
+
+            def wait(self, _seconds):
+                self.cancelled = True
+                return True
+
+        event = CancellingEvent()
+
+        with self.assertRaises(ScanCancelled):
+            retry_call(
+                lambda: (_ for _ in ()).throw(ValueError("transient")),
+                attempts=3,
+                delay_seconds=0.1,
+                cancel_event=event,
             )
 
     def test_validates_configuration(self):
