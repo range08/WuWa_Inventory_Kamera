@@ -5,6 +5,7 @@
 dist/
 build/
 logs/
+logs/validation/
 data/
 export/
 config/

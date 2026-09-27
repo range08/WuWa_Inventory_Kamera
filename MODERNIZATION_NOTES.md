@@ -216,6 +216,14 @@ The same workflow then ran the updater in explicit offline mode and reported `re
 - The parent waits up to four seconds for cooperative exit and only then uses hard process termination as a bounded fallback.
 - Once scanning is complete, cancellation monitoring stops before the short atomic export-finalization phase to avoid a late stop key producing a partial export state.
 
+## Automated validation capture tooling
+
+- Added reusable `game/navigation` state, transition, stability, and navigator primitives. The navigator checks its source before input, validates the strict current layout immediately before each action, and retries destination observation a bounded number of times without replaying an uncertain click.
+- Added `python -m tools.capture_validation_set` for native Windows at 1920x1080 / 100% DPI. It starts only from OCR-verified Terminal, uses existing scanner keybinds and calibrated tab coordinates, waits for stable frames, and checks the existing detail ROIs before each capture.
+- The capture command writes full local client images, deterministic filenames, a manifest with layout/game-data/OCR evidence, and a failure diagnostic when safe. Enter or game-focus loss requests cooperative cancellation and stops navigation. `logs/validation/` is ignored; full captures may contain account identifiers and are not anonymized.
+- Added `python -m tools.analyze_validation_set <directory>` to make annotated copies and produce JSON/Markdown reports listing configured ROI coordinates. Reports explicitly state that coordinates are not live-validated by annotation.
+- Unit tests cover capture ordering, state transitions, stability, retries, cancellation, manifest completion/failure, unique output directories, report content, and annotation-copy behavior. Live navigation and Global 3.6 ROI accuracy are not verified from WSL and remain release-gate items.
+
 ## Rover variant correctness
 
 - Removed the fixed Rover ID `1502` assumption.

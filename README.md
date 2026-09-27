@@ -91,6 +91,31 @@ python -m tools.capture_diagnostics main-menu
 
 Each run creates a timestamped directory under `logs/diagnostics/` containing only named ROI PNG files plus `manifest.json` with resolution, DPI, bounds, and any layout warning. Review captures before sharing them.
 
+### Automated Global 3.6 validation capture
+
+The validation tool is configured to navigate from the ESC Terminal menu and capture the current scanner screens. It requires native Windows, a validated Global 3.6 game-data mapping, 1920x1080 fullscreen, 100% Windows display scaling, and the client filling the target monitor.
+
+1. Run Wuthering Waves Global 3.6 at 1920x1080 with Windows scaling at 100%.
+2. Open the ESC Terminal/main menu.
+3. Run:
+
+   ```powershell
+   python -m tools.capture_validation_set
+   ```
+
+4. Leave the game untouched until the command finishes or fails. Press Enter or move focus away to request cancellation.
+5. Review `logs/validation/<timestamp>/manifest.json` and the captures before sharing them.
+
+The capture plan covers the main menu, Weapons, Echoes, Development Items, Resources, Resonator overview/weapon/skills/chain, Achievements, and Shell Credit. It checks the layout before each action, waits for a stable frame, and requires OCR evidence at the destination. If a transition cannot be verified, it saves a `FAILED-...png` diagnostic and stops. Navigation and OCR have not yet been verified against the live Global 3.6 UI. Full client captures may show a UID or other account details. The tool warns before capture, does not anonymize images, and never commits them automatically. `logs/validation/` is ignored by Git.
+
+After a capture run, overlay the current configured scanner rectangles and write the coordinate report:
+
+```powershell
+python -m tools.analyze_validation_set "logs/validation/<timestamp>"
+```
+
+The analyzer writes marked copies under `annotated/` and `analysis_report.json` / `analysis_report.md`. The report lists each state's configured ROI coordinates and explicitly leaves live ROI validation unconfirmed.
+
 For calibration without saving any pixels at all, show a temporary live overlay:
 
 ```powershell

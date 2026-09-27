@@ -72,6 +72,8 @@ When a new game branch such as 3.7 becomes available, first change the single de
 
 Never commit screenshots containing a UID, account identifier, launcher credential, authentication token, chat content, or other unrelated personal information.
 
+The automatic validation tool saves complete game-client frames under the ignored `logs/validation/` directory. These images may contain account identifiers. Review them before sharing; do not add the generated captures or annotated copies to a commit.
+
 Use the no-click diagnostic tool instead of full-screen screenshots:
 
 ```powershell

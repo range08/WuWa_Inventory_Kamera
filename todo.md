@@ -21,6 +21,7 @@ Design goal: avoid hard-coding the project to 3.6 so that 3.7+ updates are mostl
 - [ ] Confirm the application starts on a clean Windows 11 environment.
 - [x] Record supported Python versions: Windows dependency/import smoke passes on Python 3.12, 3.13, and 3.14; cx_Freeze build smoke passes on Python 3.14.
 - [x] Create a clean `.venv` and install all pinned dependencies from scratch; verified by Fresh Install Smoke run 36119576256 on Windows.
+- [x] Implement a one-command, guarded validation capture plan with state verification, cooperative cancellation, manifests, and offline ROI annotation. Live Global 3.6 capture remains unchecked until run and inspected on Windows.
 - [x] Document exact virtualenv, dependency install, data update, run, offline reuse, and cx_Freeze build commands in README.
 - [x] Verify the no-`data/` bootstrap path: imports succeed without generated mappings, real Global 3.6 Korean mappings are generated from empty state, loaded into the data store, and the Qt main window constructs offscreen (Fresh Install Smoke 36119576256).
 - [ ] Verify behavior on 1920x1080 fullscreen first.
@@ -115,6 +116,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Validate scrolling distances/direction.
 - [ ] Validate UI animation timing at 60 FPS and 120 FPS.
 - [ ] Add configurable waits/retry-until-stable rather than relying only on fixed sleeps.
+- [x] Add reusable bounded stable-frame waiting and injectable screen-state transition primitives for validation capture; real scanner flow conversion and live ROI verification remain open.
 
 ## Phase 6 — Resolution/window handling
 

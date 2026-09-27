@@ -10,4 +10,6 @@ APPROVED_CAPTURE_WRITERS = frozenset({
     "scraping/weaponsScraper.py",
     "scraping/echoesScraper.py",
     "tools/capture_diagnostics.py",
+    "tools/capture_validation_set.py",
+    "tools/analyze_validation_set.py",
 })
