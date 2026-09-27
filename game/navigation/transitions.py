@@ -111,6 +111,12 @@ SELECT_RESONATOR_CHAIN = TransitionSpec(
     "select the Resonance Chain section",
     changed_roi="characters.chainButton",
 )
+SELECT_RESONANCE_CHAIN_NODE = TransitionSpec(
+    GameState.RESONATOR_CHAIN,
+    GameState.RESONATOR_CHAIN,
+    "select_resonance_chain_node",
+    "select the scanner's initial Resonance Chain node to expose its status",
+)
 CLOSE_RESONATOR = TransitionSpec(
     GameState.RESONATOR_CHAIN,
     GameState.MAIN_MENU,
@@ -199,7 +205,11 @@ CAPTURE_PLAN = (
         "resonator-chain",
         "09-resonator-chain.png",
         GameState.RESONATOR_CHAIN,
-        (CLOSE_RESONATOR_SKILL_DETAIL, SELECT_RESONATOR_CHAIN),
+        (
+            CLOSE_RESONATOR_SKILL_DETAIL,
+            SELECT_RESONATOR_CHAIN,
+            SELECT_RESONANCE_CHAIN_NODE,
+        ),
     ),
     CaptureSpec(
         10,

@@ -160,6 +160,10 @@ def _map_capture_action(action: str, *, controller, screen_info, config, cancel_
         point = screen_info.characters.skillClick
         controller.leftClick(point.x, point.y, 0.1)
         return
+    if action == "select_resonance_chain_node":
+        point = screen_info.characters.chainClick
+        controller.leftClick(point.x, point.y, 0.1)
+        return
     if action == "open_achievements":
         point = screen_info.achievements.achievementsButton
         controller.leftClick(point.x, point.y, 0.1)

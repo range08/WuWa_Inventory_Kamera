@@ -67,6 +67,17 @@ class ValidationCapturePlanTests(unittest.TestCase):
                 for item in all_transitions
             )
         )
+        chain_actions = [
+            item.action for item in CAPTURE_PLAN[8].transitions
+        ]
+        self.assertEqual(
+            chain_actions,
+            [
+                "escape",
+                "select_resonator_chain",
+                "select_resonance_chain_node",
+            ],
+        )
 
     def test_manifest_contains_required_metadata_and_status_fields(self):
         manifest = build_manifest(
