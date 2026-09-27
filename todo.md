@@ -133,6 +133,7 @@ Start with 1920x1080 fullscreen.
 - [ ] Verify expected screen before each action.
 - [ ] Verify expected transition after each action.
 - [x] Add bounded retries and safe cancellation: critical count/Shell OCR reads use bounded 3-attempt retries, and scanner cancellation is cooperative with a 4-second hard-termination fallback.
+- [x] Make in-scan input settle waits, Resonator section pauses, and OCR retry delays respond to the shared cancellation event; key press/release sequences finish before cancellation is raised.
 - [x] Remove the forced Administrator requirement; scanner input remains ordinary user-level Win32 mouse/keyboard automation. Real game interaction still requires manual validation.
 - [x] Keep all interaction at ordinary user-input level; no process memory, injection, packet interception, or anti-cheat bypass path is used.
 - [x] Add a no-click screenshot diagnostic mode that captures only named scanner ROIs and layout metadata.
@@ -183,7 +184,8 @@ Start with 1920x1080 fullscreen.
 ## Phase 12 — Export schema
 
 - [x] Preserve legacy inventory/characters/weapons/echoes/achievements export filenames; new metadata is emitted only as an additional file.
-- [x] Add optional `account.json`; it is emitted only when no manual-review item remains at scan completion.
+- [x] Add optional `account.json`; it is emitted only when no manual-review item remains, including after the user resolves or skips queued entries.
+- [x] Refresh validation/account exports after manual-review decisions, validating every legacy section before an aggregate can be marked complete.
 - [x] Add schema/game-data metadata in a separate `scan_metadata.json` file so legacy WuWa Tracker files remain unchanged.
 - [x] Use deterministic UTF-8 JSON formatting and atomic replacement for scanner exports.
 - [x] Emit `validation_report.json` with selected scanners, section counts, and manual-review status.
@@ -205,6 +207,7 @@ Start with 1920x1080 fullscreen.
 - [x] Add legacy inventory export validation tests covering metadata keys, numeric IDs, invalid roots, and invalid quantities.
 - [x] Add malformed/partial OCR tests.
 - [x] Add offline updater/cache-reuse tests.
+- [x] Add review-finalization tests for pending, resolved, and invalid legacy export states.
 - [x] Ensure dependency-free/unit, dependency smoke, build smoke, and fresh-install smoke tests run without Wuthering Waves installed.
 
 ## Phase 15 — Dependency/build modernization

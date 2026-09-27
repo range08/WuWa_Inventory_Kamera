@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from scraping.account_export import build_account_export, build_validation_report
-from scraping.exporter import write_json_atomic
+from scraping.export_schema import ExportValidationError, validate_scan_sections
+from scraping.exporter import encode_json, write_json_atomic
 
 
 class ReviewFinalizeError(ValueError):
@@ -42,10 +43,21 @@ def refresh_review_exports(
 ) -> dict:
     """Refresh validation/account exports after a manual-review decision."""
 
-    if remaining_review_items < 0:
-        raise ReviewFinalizeError("remaining_review_items cannot be negative")
+    if (
+        isinstance(remaining_review_items, bool)
+        or not isinstance(remaining_review_items, int)
+        or remaining_review_items < 0
+    ):
+        raise ReviewFinalizeError(
+            "remaining_review_items must be a non-negative integer."
+        )
 
     scan_dir = Path(scan_dir)
+    account_path = scan_dir / "account.json"
+    # Never leave a previous aggregate looking current if validation or a later
+    # write fails while applying a review decision.
+    account_path.unlink(missing_ok=True)
+
     metadata = _read_json(scan_dir / "scan_metadata.json", dict)
     previous_validation = _read_json(
         scan_dir / "validation_report.json",
@@ -81,30 +93,48 @@ def refresh_review_exports(
         default=[],
     )
 
-    validation = build_validation_report(
-        selected_scanners=selected_scanners,
-        inventory=inventory,
-        characters=characters,
-        weapons=weapons,
-        echoes=echoes,
-        achievements=achievements,
-        failed_count=remaining_review_items,
-    )
-    write_json_atomic(scan_dir / "validation_report.json", validation)
-
-    account_path = scan_dir / "account.json"
-    if remaining_review_items == 0:
-        account = build_account_export(
-            metadata=metadata,
-            validation=validation,
+    try:
+        validate_scan_sections(
             inventory=inventory,
             characters=characters,
             weapons=weapons,
             echoes=echoes,
             achievements=achievements,
         )
+        validation = build_validation_report(
+            selected_scanners=selected_scanners,
+            inventory=inventory,
+            characters=characters,
+            weapons=weapons,
+            echoes=echoes,
+            achievements=achievements,
+            failed_count=remaining_review_items,
+        )
+
+        account = None
+        if remaining_review_items == 0:
+            account = build_account_export(
+                metadata=metadata,
+                validation=validation,
+                inventory=inventory,
+                characters=characters,
+                weapons=weapons,
+                echoes=echoes,
+                achievements=achievements,
+            )
+
+        # Preflight both payloads before changing the validation report. This
+        # catches credential-like fields and serialization errors up front.
+        encode_json(validation)
+        if account is not None:
+            encode_json(account)
+    except (ExportValidationError, TypeError, ValueError) as exc:
+        raise ReviewFinalizeError(
+            "Reviewed scan data failed export validation."
+        ) from exc
+
+    write_json_atomic(scan_dir / "validation_report.json", validation)
+    if account is not None:
         write_json_atomic(account_path, account)
-    else:
-        account_path.unlink(missing_ok=True)
 
     return validation

@@ -19,6 +19,7 @@ from qfluentwidgets import (
 from properties.config import cfg, FAILED, INVENTORY
 from scraping.scraperExectuter import startScraper
 from scraping.utils import itemsID, savingScraped
+from scraping.review_finalize import ReviewFinalizeError, refresh_review_exports
 
 logger = logging.getLogger('HomeInterface')
 
@@ -157,6 +158,30 @@ class HomeInterface(QWidget):
 			if path:
 				Path(path).unlink(missing_ok=True)
 
+	def _refreshReviewExports(self):
+		"""Keep scan status and aggregate output aligned with review decisions."""
+		scan_date = INVENTORY.get('date')
+		if not scan_date:
+			return
+
+		scan_dir = Path(cfg.get(cfg.exportFolder)) / scan_date
+		if not (scan_dir / 'scan_metadata.json').is_file():
+			return
+
+		try:
+			refresh_review_exports(
+				scan_dir,
+				inventory=INVENTORY.get('items', {}),
+				remaining_review_items=len(FAILED),
+			)
+		except (ReviewFinalizeError, OSError) as exc:
+			logger.error("Unable to refresh exports after OCR review: %s", exc, exc_info=True)
+			self.showNotification(
+				'error',
+				'Could not update scan exports',
+				str(exc),
+			)
+
 	def onSkipButtonClicked(self):
 		"""Handle the Skip button click event."""
 		global FAILED
@@ -164,6 +189,7 @@ class HomeInterface(QWidget):
 		if FAILED:
 			failed_item = FAILED.pop(0)
 			self._removeFailedArtifactFiles(failed_item)
+			self._refreshReviewExports()
 			self.updateUISignal.emit()
 
 	def onChangeButtonClicked(self):
@@ -188,6 +214,7 @@ class HomeInterface(QWidget):
 			if FAILED:
 				failed_item = FAILED.pop(0)
 				self._removeFailedArtifactFiles(failed_item)
+				self._refreshReviewExports()
 
 			self.updateUISignal.emit()
 		else:

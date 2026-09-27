@@ -276,3 +276,18 @@ The same workflow then ran the updater in explicit offline mode and reported `re
 - Added pinned Ruff correctness lint (`E9,F63,F7,F82`) to the fast Windows CI.
 - The lint immediately caught a missing `sys` import in the packaged-runtime smoke entrypoint; the defect was fixed before proceeding.
 - Real Global-data smoke, fresh-install smoke, dependency/import/UI smoke, and packaged executable smoke remain separate from the fast dependency-free unit/lint checks.
+
+## Cancellation-responsive scanner waits
+
+- Added a dependency-free `wait_or_cancel` helper that waits on the shared process event and raises `ScanCancelled` as soon as a stop request arrives.
+- Scanner mouse, scroll, and single-key settle delays now use that helper. The Resonator section pause and bounded weapon, Echo, and Shell count-retry delays also respond to cancellation.
+- Multi-key press/release sequences keep their short internal spacing and release all keys before the post-action wait observes cancellation.
+- The child sends Escape with no settle delay during cleanup, so an already-requested cancellation does not prevent the cleanup key from being sent.
+- Unit tests cover unset/set events, zero and invalid delays, injected sleeping, and cancellation during a retry wait. Live game UI restoration still requires Windows/Wuthering Waves validation.
+
+## Manual-review export finalization
+
+- Wired the existing review-finalization helper into item update/skip actions so `validation_report.json` tracks the current review queue and `account.json` appears after the last review is resolved or skipped.
+- The finalizer removes any prior aggregate first, validates inventory, character, weapon, Echo, and achievement exports, and preflights the additive JSON payloads before writing a complete status.
+- Invalid legacy values or credential-like fields fail closed: the validation report is left unchanged and no aggregate account export remains.
+- Added dependency-free tests for pending-review removal, successful aggregate creation, invalid legacy data, and malformed review counts.
